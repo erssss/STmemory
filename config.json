@@ -1,0 +1,40 @@
+{
+  "memory": {
+    "shallow_capacity": 100,
+    "working_capacity": 500,
+    "deep_capacity": 2000,
+    "ttl_shallow": 300,
+    "ttl_working": 1800,
+    "decay_lambda": 0.01,
+    "alpha": 0.5,
+    "beta": 0.3,
+    "gamma": 0.2
+  },
+  "budget": {
+    "model": "openclaw",
+    "budget_ratio": 0.8,
+    "safety_margin": 0.1
+  },
+  "performance": {
+    "max_latency_ms": 100,
+    "target_compression": 5.0,
+    "bleu_threshold": 0.98
+  },
+  "storage": {
+    "deep_memory_path": "./data/deep_memory.json",
+    "meta_memory_path": "./data/meta_memory.json",
+    "backup_interval": 3600
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0,
+    "password": null
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "./logs/memory_system.log",
+    "max_size_mb": 100,
+    "backup_count": 5
+  }
+}
