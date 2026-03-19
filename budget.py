@@ -244,6 +244,14 @@ class BudgetController:
                 "response_tokens": response_tokens,
                 "optimized": False
             }
+
+        min_response_tokens = 50
+        if memory_tokens >= int(max_tokens * 0.9):
+            return {
+                "memory_tokens": max_tokens - min_response_tokens,
+                "response_tokens": min_response_tokens,
+                "optimized": True
+            }
         
         # 需要优化，优先保证响应生成
         excess_tokens = total_tokens - max_tokens
@@ -256,8 +264,8 @@ class BudgetController:
         new_response_tokens = response_tokens - remaining_excess
         
         # 确保响应预算至少为50 tokens
-        if new_response_tokens < 50:
-            new_response_tokens = 50
+        if new_response_tokens < min_response_tokens:
+            new_response_tokens = min_response_tokens
             new_memory_tokens = max_tokens - new_response_tokens
         
         return {
@@ -276,6 +284,8 @@ class BudgetController:
         Returns:
             预估成本（美元）
         """
+        if tokens <= 0:
+            return 0.0
         return (tokens / 1000) * self.model_config.cost_per_1k_tokens
     
     def get_savings_estimate(self, original_tokens: int, optimized_tokens: int) -> Dict[str, Any]:

@@ -6,6 +6,8 @@ from sentence_transformers import SentenceTransformer
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 import math
+import re
+import hashlib
 
 from memory_layers import MemoryEntry, MemoryLayer, MemoryConfig
 
@@ -19,6 +21,24 @@ class ScoredMemory:
     time_score: float
     layer_score: float
     layer_transition_prob: float
+
+
+class _HashEmbeddingModel:
+    def __init__(self, dim: int = 256):
+        self.dim = dim
+
+    def encode(self, texts: List[str]) -> np.ndarray:
+        vectors = np.zeros((len(texts), self.dim), dtype=np.float32)
+        for i, text in enumerate(texts):
+            tokens = re.findall(r"[a-zA-Z0-9]+", text.lower())
+            for token in tokens:
+                digest = hashlib.md5(token.encode("utf-8")).hexdigest()
+                idx = int(digest[:8], 16) % self.dim
+                vectors[i, idx] += 1.0
+            norm = np.linalg.norm(vectors[i])
+            if norm > 0:
+                vectors[i] /= norm
+        return vectors
 
 
 class SpatioTemporalRanker:
@@ -35,12 +55,11 @@ class SpatioTemporalRanker:
         """加载句子嵌入模型"""
         try:
             self.model = SentenceTransformer(self.model_name)
-            # 使用CPU以减少内存占用
             if torch.cuda.is_available():
-                self.model = self.model.to('cpu')
+                self.model = self.model.to("cpu")
         except Exception as e:
             print(f"Warning: Failed to load sentence transformer model: {e}")
-            self.model = None
+            self.model = _HashEmbeddingModel()
     
     def _init_transition_matrix(self) -> Dict[str, Dict[str, float]]:
         """初始化层级转移概率矩阵"""

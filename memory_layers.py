@@ -24,6 +24,8 @@ class MemoryEntry:
 @dataclass
 class MemoryConfig:
     """记忆系统配置"""
+    shallow_capacity: int = 100 
+    working_capacity: int = 500 
     shallow_ttl: int = 300  # 5分钟
     working_ttl: int = 1800  # 30分钟
     deep_persist_path: str = "deep_memory.db"
@@ -246,6 +248,7 @@ class DeepMemoryLayer(MemoryLayer):
     def __init__(self, config: MemoryConfig):
         super().__init__(config, "deep")
         self.db_path = config.deep_persist_path
+        self._conn = None
         self.memories: Dict[str, MemoryEntry] = {}
         self.knowledge_graph: Dict[str, List[str]] = {}
         self._init_database()
@@ -253,9 +256,16 @@ class DeepMemoryLayer(MemoryLayer):
     def _init_database(self):
         """初始化SQLite数据库"""
         import sqlite3
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        if self.db_path != ":memory:":
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
         
-        conn = sqlite3.connect(self.db_path)
+        if self.db_path == ":memory:":
+            self._conn = sqlite3.connect(":memory:")
+            conn = self._conn
+        else:
+            conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -279,7 +289,8 @@ class DeepMemoryLayer(MemoryLayer):
         ''')
         
         conn.commit()
-        conn.close()
+        if self._conn is None:
+            conn.close()
     
     def _extract_entities(self, text: str) -> List[str]:
         """简单的实体提取"""
@@ -309,7 +320,7 @@ class DeepMemoryLayer(MemoryLayer):
     def _persist_entry(self, entry: MemoryEntry):
         """持久化条目到数据库"""
         import sqlite3
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn or sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         embedding_blob = entry.embedding.tobytes() if entry.embedding is not None else None
@@ -323,7 +334,8 @@ class DeepMemoryLayer(MemoryLayer):
               entry.layer, entry.token_count, embedding_blob, metadata_json))
         
         conn.commit()
-        conn.close()
+        if self._conn is None:
+            conn.close()
     
     def retrieve(self, query: str, budget: int) -> List[MemoryEntry]:
         """基于实体和语义检索"""
@@ -333,15 +345,19 @@ class DeepMemoryLayer(MemoryLayer):
         query_entities = self._extract_entities(query)
         
         # 基于实体检索
-        relevant_entries = set()
+        relevant_entry_ids = set()
         for entity in query_entities:
             if entity in self.knowledge_graph:
                 for entry_id in self.knowledge_graph[entity]:
                     if entry_id in self.memories:
-                        relevant_entries.add(self.memories[entry_id])
+                        relevant_entry_ids.add(entry_id)
         
         # 按时间排序并限制预算
-        sorted_entries = sorted(relevant_entries, key=lambda x: x.timestamp, reverse=True)
+        sorted_entries = sorted(
+            (self.memories[entry_id] for entry_id in relevant_entry_ids),
+            key=lambda x: x.timestamp,
+            reverse=True,
+        )
         
         results = []
         current_tokens = 0
@@ -460,8 +476,11 @@ class MetaMemoryLayer(MemoryLayer):
     
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
+        total_tokens = sum(log.get("token_count", 0) for log in self.access_log)
         return {
             "layer": self.layer_name,
+            "entries": len(self.access_log),
+            "total_tokens": total_tokens,
             "total_accesses": len(self.access_log),
             "query_patterns": self.query_patterns,
             "layer_transitions": self.layer_transitions,
