@@ -7,6 +7,7 @@
 import asyncio
 import json
 import time
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from dataclasses import dataclass
 from memory_layers import MemoryEntry, MemoryConfig
 from ranker import SpatioTemporalRanker
 from budget import BudgetController
-from plugin import SpatioTemporalMemoryPlugin
+from plugin import SpatioTemporalMemoryPlugin, make_openai_compatible_api_func
 
 
 @dataclass
@@ -29,7 +30,7 @@ class DemoConversation:
 class MemoryDemo:
     """记忆系统演示器"""
     
-    def __init__(self):
+    def __init__(self, use_llm: bool, llm_base_url: str, llm_model: str, llm_api_key: str):
         # 轻量级配置，适合8GB内存
         self.config = MemoryConfig(
             shallow_capacity=50,
@@ -43,6 +44,18 @@ class MemoryDemo:
             beta_time=0.3,
             gamma_layer=0.2
         )
+        
+        if use_llm:
+            api_key = llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+            base_url = llm_base_url or os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            model = llm_model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
+            self.openclaw_api_func = make_openai_compatible_api_func(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+            )
+        else:
+            self.openclaw_api_func = None
         
         self.plugin = SpatioTemporalMemoryPlugin(
             model_name="openclaw",
@@ -188,12 +201,17 @@ class MemoryDemo:
     
     async def _simulate_query(self, conv: DemoConversation) -> Dict[str, Any]:
         """模拟查询处理"""
-        async def mock_openclaw_api(prompt: str) -> str:
-            if "Context from previous conversations:" in prompt:
-                return f"[基于之前对话] {conv.response}"
-            return conv.response
+        if self.openclaw_api_func is None:
+            async def mock_openclaw_api(prompt: str) -> str:
+                if "Context from previous conversations:" in prompt:
+                    return f"[基于之前对话] {conv.response}"
+                return conv.response
+            
+            openclaw_api_func = mock_openclaw_api
+        else:
+            openclaw_api_func = self.openclaw_api_func
         
-        return await self.plugin.process_query(conv.query, mock_openclaw_api)
+        return await self.plugin.process_query(conv.query, openclaw_api_func)
     
     def _analyze_memory_changes(
         self,
@@ -323,27 +341,36 @@ class MemoryDemo:
             ("深度学习又是什么？", "AI")
         ]
         
-        for i, (query, topic) in enumerate(demo_queries, 1):
-            print(f"📝 查询 {i}: {query}")
-            
-            # 模拟记忆检索
-            has_memory = i > 1  # 从第二轮开始有相关记忆
-            
-            if has_memory:
-                print("  ✅ 检测到相关记忆，构建上下文中...")
-                response = f"[基于之前对话] {self._get_mock_response(query)}"
-                tokens_saved = 35.0
-            else:
-                print("  📋 新主题，添加到浅层记忆...")
-                response = self._get_mock_response(query)
-                tokens_saved = 0.0
-            
-            print(f"  回答: {response}")
-            print(f"  💰 Token节省: {tokens_saved:.1f}%")
-            print("-" * 40)
-            print()
-            
-            await asyncio.sleep(0.3)  # 模拟处理时间
+        if self.openclaw_api_func is None:
+            for i, (query, topic) in enumerate(demo_queries, 1):
+                print(f"📝 查询 {i}: {query}")
+                
+                has_memory = i > 1
+                
+                if has_memory:
+                    print("  ✅ 检测到相关记忆，构建上下文中...")
+                    response = f"[基于之前对话] {self._get_mock_response(query)}"
+                    tokens_saved = 35.0
+                else:
+                    print("  📋 新主题，添加到浅层记忆...")
+                    response = self._get_mock_response(query)
+                    tokens_saved = 0.0
+                
+                print(f"  回答: {response}")
+                print(f"  💰 Token节省: {tokens_saved:.1f}%")
+                print("-" * 40)
+                print()
+                
+                await asyncio.sleep(0.3)
+        else:
+            for i, (query, topic) in enumerate(demo_queries, 1):
+                print(f"📝 查询 {i}: {query}")
+                result = await self.plugin.process_query(query, self.openclaw_api_func)
+                print(f"  回答: {result['response']}")
+                print(f"  🔎 相关记忆: {result['relevant_memories_count']}条")
+                print("-" * 40)
+                print()
+                await asyncio.sleep(0.3)
     
     def _get_mock_response(self, query: str) -> str:
         """获取模拟响应"""
@@ -357,10 +384,23 @@ class MemoryDemo:
 
 async def main():
     """主函数"""
-    demo = MemoryDemo()
+    import argparse
     
-    # 运行完整演示
-    await demo.run_demo()
+    parser = argparse.ArgumentParser(description="OpenClaw记忆系统演示")
+    parser.add_argument("--lightweight", action="store_true", help="运行轻量级版本（适合低内存环境）")
+    parser.add_argument("--rounds", type=int, default=None, help="指定演示轮数")
+    parser.add_argument("--use-llm", action="store_true", help="启用真实LLM API（OpenAI兼容 /v1/chat/completions）")
+    parser.add_argument("--llm-base-url", default="", help="LLM Base URL，例如 https://api.openai.com/v1")
+    parser.add_argument("--llm-model", default="", help="LLM 模型名，例如 gpt-4o-mini")
+    parser.add_argument("--llm-api-key", default="", help="LLM API Key（也可用环境变量 LLM_API_KEY / OPENAI_API_KEY）")
+    args = parser.parse_args()
+    
+    demo = MemoryDemo(args.use_llm, args.llm_base_url, args.llm_model, args.llm_api_key)
+    
+    if args.lightweight:
+        await demo.run_lightweight_demo()
+    else:
+        await demo.run_demo()
     
     print("\n" + "=" * 60)
     print("🎉 演示完成！")
@@ -369,20 +409,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    # 提供命令行选项
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="OpenClaw记忆系统演示")
-    parser.add_argument("--lightweight", action="store_true", 
-                       help="运行轻量级版本（适合低内存环境）")
-    parser.add_argument("--rounds", type=int, default=None,
-                       help="指定演示轮数")
-    
-    args = parser.parse_args()
-    
-    demo = MemoryDemo()
-    
-    if args.lightweight:
-        asyncio.run(demo.run_lightweight_demo())
-    else:
-        asyncio.run(demo.run_demo())
+    asyncio.run(main())

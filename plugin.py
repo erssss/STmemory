@@ -14,6 +14,54 @@ from ranker import SpatioTemporalRanker
 from budget import BudgetController
 
 
+def make_openai_compatible_api_func(
+    api_key: str,
+    base_url: str,
+    model: str,
+    timeout_s: int = 60,
+):
+    base_url = (base_url or "").rstrip("/")
+    if not base_url:
+        raise ValueError("base_url is required")
+    if not api_key:
+        raise ValueError("api_key is required")
+    if not model:
+        raise ValueError("model is required")
+    
+    async def _call(prompt: str) -> str:
+        import aiohttp
+        
+        url = f"{base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+        }
+        
+        timeout = aiohttp.ClientTimeout(total=timeout_s)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status >= 400:
+                    err = data.get("error", {})
+                    msg = err.get("message") or str(data)
+                    raise RuntimeError(f"LLM API error ({resp.status}): {msg}")
+                choices = data.get("choices") or []
+                if not choices:
+                    raise RuntimeError(f"LLM API returned no choices: {data}")
+                message = choices[0].get("message") or {}
+                content = message.get("content")
+                if not content:
+                    raise RuntimeError(f"LLM API returned empty content: {data}")
+                return str(content).strip()
+    
+    return _call
+
+
 class SpatioTemporalMemoryPlugin:
     """OpenClaw插件：分层时空记忆系统"""
     

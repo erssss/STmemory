@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STmemory 可视化演示</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral" });
+      window.__mermaid = mermaid;
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="title">
+          <div class="h1">STmemory 可视化演示</div>
+          <div class="sub">交互式展示：分层记忆工作流、数据处理过程、性能指标与功能完整性验证</div>
+        </div>
+        <div class="status">
+          <div class="pill" id="serverPill">Server: online</div>
+          <div class="pill" id="demoPill">Demo: -</div>
+          <div class="pill" id="locomoPill">LOCOMO: -</div>
+        </div>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="memory">记忆工作流</button>
+        <button class="tab" data-tab="locomo">LOCOMO 基准</button>
+      </nav>
+
+      <main class="content">
+        <section class="tabpane active" id="tab-memory">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-title">交互控制</div>
+              <div class="row">
+                <button class="btn primary" id="btnReset">重置</button>
+                <button class="btn" id="btnStep">下一步</button>
+                <button class="btn" id="btnAuto">自动播放</button>
+              </div>
+              <div class="row">
+                <div class="kv">
+                  <div class="k">进度</div>
+                  <div class="v" id="turnInfo">-</div>
+                </div>
+                <div class="kv">
+                  <div class="k">缓存命中</div>
+                  <div class="v" id="cacheHit">-</div>
+                </div>
+              </div>
+              <div class="row">
+                <input class="input" id="chatInput" placeholder="输入问题，实时观察检索与写回…" />
+                <button class="btn primary" id="btnChat">发送</button>
+              </div>
+
+              <div class="panel-title">工作流</div>
+              <div class="diagram">
+                <div class="mermaid" id="flowMermaid">
+flowchart LR
+  A[用户输入 Query] --> B[时空检索 retrieve_relevant_memories]
+  B --> C[预算控制 BudgetController]
+  C --> D[排序选择 Ranker.select_memories_within_budget]
+  D --> E[构建 Context]
+  E --> F[调用 LLM/OpenClaw]
+  F --> G[写回各层记忆 shallow/working/deep + meta]
+  G --> H[更新性能统计与日志]
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-title">实时指标</div>
+              <div class="charts">
+                <div class="chart" id="memoryChart"></div>
+                <div class="chart" id="latencyChart"></div>
+                <div class="chart" id="tokenChart"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">本轮详情</div>
+            <div class="split">
+              <div class="box">
+                <div class="box-title">输入 / 输出</div>
+                <div class="mono" id="ioBox">-</div>
+              </div>
+              <div class="box">
+                <div class="box-title">Context（截断预览）</div>
+                <div class="mono" id="ctxBox">-</div>
+              </div>
+              <div class="box">
+                <div class="box-title">完整性检查</div>
+                <div class="checks" id="checksBox">-</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tabpane" id="tab-locomo">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-title">运行与加载</div>
+              <div class="row">
+                <button class="btn" id="btnRefreshRuns">刷新列表</button>
+                <select class="select" id="runSelect"></select>
+                <button class="btn primary" id="btnLoadRun">加载</button>
+              </div>
+              <div class="row">
+                <button class="btn primary" id="btnStartLocomo">启动 Smoke Run</button>
+                <button class="btn" id="btnStopLocomo">停止</button>
+              </div>
+              <div class="kv">
+                <div class="k">当前输出目录</div>
+                <div class="v mono" id="locomoDir">-</div>
+              </div>
+              <div class="kv">
+                <div class="k">阈值判定</div>
+                <div class="v" id="thresholdBox">-</div>
+              </div>
+              <div class="panel-title">实时日志</div>
+              <div class="log mono" id="locomoLog"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-title">基准指标</div>
+              <div class="charts">
+                <div class="chart" id="locomoLatencyChart"></div>
+                <div class="chart" id="locomoScoreChart"></div>
+                <div class="chart" id="locomoCategoryChart"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">样本验证（前 50 条）</div>
+            <div class="table" id="locomoTable"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

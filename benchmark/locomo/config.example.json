@@ -1,0 +1,18 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "top_k": 30,
+  "filter_memories": false,
+  "is_graph": false,
+  "max_workers": 10,
+  "use_mock_openai": true,
+  "model": "mock",
+  "openai_api_key": "mock",
+  "openai_base_url": null,
+  "thresholds": {
+    "max_add_p95_s": 0.05,
+    "max_search_p95_s": 0.05
+  },
+  "fail_on_threshold": true
+}
+
