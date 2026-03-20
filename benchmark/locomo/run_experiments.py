@@ -15,10 +15,11 @@ def main():
     parser.add_argument("--filter_memories", action="store_true", default=False, help="Whether to filter memories")
     parser.add_argument("--is_graph", action="store_true", default=False, help="Whether to use graph-based search")
     parser.add_argument("--num_chunks", type=int, default=1, help="Number of chunks to process")
+    parser.add_argument("--dataset-path", type=str, default=None, help="Path to LOCOMO dataset json")
 
     args = parser.parse_args()
 
-    dataset_path = "dataset/locomo10.json"
+    dataset_path = args.dataset_path or os.getenv("LOCOMO_DATASET_PATH") or "dataset/locomo10.json"
 
     print(f"Running experiments with chunk size: {args.chunk_size}")
     print(f"Using dataset: {dataset_path}")

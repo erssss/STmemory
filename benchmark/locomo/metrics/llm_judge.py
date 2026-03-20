@@ -1,10 +1,11 @@
 import json
 import os
 import re
+import threading
+import time
+from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-
-client = OpenAI()
+_METRICS_LOCK = threading.Lock()
 
 ACCURACY_PROMPT = """
 Your task is to label an answer to a question as ’CORRECT’ or ’WRONG’. You will be given the following data:
@@ -43,17 +44,167 @@ def extract_json(text):
     return json_str
 
 
+def _extract_text_from_anthropic_message(message: Any) -> str:
+    content = getattr(message, "content", None)
+    if not content:
+        return ""
+    parts: List[str] = []
+    for block in content:
+        block_type = getattr(block, "type", None)
+        if block_type is None and isinstance(block, dict):
+            block_type = block.get("type")
+        if block_type != "text":
+            continue
+        text = getattr(block, "text", None)
+        if text is None and isinstance(block, dict):
+            text = block.get("text")
+        if isinstance(text, str) and text.strip():
+            parts.append(text.strip())
+    return "\n".join(parts).strip()
+
+
+def _append_metrics(metrics_path: Optional[str], row: Dict[str, Any]) -> None:
+    if not metrics_path:
+        return
+    try:
+        line = json.dumps(row, ensure_ascii=False)
+    except Exception:
+        return
+    try:
+        with _METRICS_LOCK:
+            with open(metrics_path, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.write("\n")
+    except Exception:
+        return
+
+
+def _append_jsonl(path: Optional[str], row: Dict[str, Any]) -> None:
+    if not path:
+        return
+    try:
+        line = json.dumps(row, ensure_ascii=False)
+    except Exception:
+        return
+    try:
+        with _METRICS_LOCK:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.write("\n")
+    except Exception:
+        return
+
+
+def _mock_judge(gold_answer: str, generated_answer: str) -> int:
+    gold = str(gold_answer or "").strip().lower()
+    gen = str(generated_answer or "").strip().lower()
+    if not gold or not gen:
+        return 0
+    if gold in gen:
+        return 1
+    gold_tokens = {t for t in re.split(r"\W+", gold) if t}
+    gen_tokens = {t for t in re.split(r"\W+", gen) if t}
+    if not gold_tokens or not gen_tokens:
+        return 0
+    overlap = len(gold_tokens & gen_tokens) / max(1, len(gold_tokens))
+    return 1 if overlap >= 0.5 else 0
+
+
 def evaluate_llm_judge(question, gold_answer, generated_answer):
-    response = client.chat.completions.create(
-        model=os.getenv("MODEL"),
-        messages=[
+    if os.getenv("LOCOMO_USE_MOCK_LLM") == "1":
+        score = _mock_judge(gold_answer, generated_answer)
+        _append_metrics(os.getenv("MINIMAX_METRICS_PATH"), {"type": "judge", "latency_s": 0.0, "success": True, "mock": True})
+        prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+        _append_jsonl(
+            (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None,
             {
-                "role": "user",
-                "content": ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer),
-            }
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.0,
+                "type": "judge",
+                "mock": True,
+                "model": os.getenv("MODEL") or "MiniMax-M2.7",
+                "latency_s": 0.0,
+                "prompt": prompt,
+                "response": json.dumps({"label": "CORRECT" if score == 1 else "WRONG"}),
+                "meta": {"question": question},
+            },
+        )
+        return score
+
+    try:
+        import anthropic
+    except Exception as e:
+        raise RuntimeError("anthropic package is required for MiniMax calls") from e
+
+    api_key = os.getenv("MINIMAX_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY) is not set")
+
+    timeout_s = float(os.getenv("LOCOMO_LLM_REQUEST_TIMEOUT_S") or os.getenv("MINIMAX_REQUEST_TIMEOUT_S") or "60")
+    try:
+        client = anthropic.Anthropic(api_key=api_key, timeout=timeout_s)
+    except TypeError:
+        client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+    t1 = time.time()
+    try:
+        try:
+            message = client.messages.create(
+                model=os.getenv("MODEL") or "MiniMax-M2.7",
+                max_tokens=int(os.getenv("MINIMAX_JUDGE_MAX_TOKENS") or os.getenv("MINIMAX_MAX_TOKENS") or "256"),
+                temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a rigorous evaluator.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": prompt}],
+                    }
+                ],
+                timeout=timeout_s,
+            )
+        except TypeError:
+            message = client.messages.create(
+                model=os.getenv("MODEL") or "MiniMax-M2.7",
+                max_tokens=int(os.getenv("MINIMAX_JUDGE_MAX_TOKENS") or os.getenv("MINIMAX_MAX_TOKENS") or "256"),
+                temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a rigorous evaluator.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": prompt}],
+                    }
+                ],
+            )
+    except Exception as e:
+        msg = str(e)
+        if "401" in msg or "authentication_error" in msg or "Authorization" in msg or "api key" in msg.lower():
+            raise RuntimeError("MiniMax authentication failed. Set MINIMAX_API_KEY or run with LOCOMO_USE_MOCK_LLM=1.") from e
+        raise
+    t2 = time.time()
+
+    content = _extract_text_from_anthropic_message(message)
+    metrics_path = os.getenv("MINIMAX_METRICS_PATH")
+    try:
+        label = json.loads(extract_json(content)).get("label")
+        ok = bool(label in ("CORRECT", "WRONG"))
+    except Exception:
+        label = None
+        ok = False
+    _append_metrics(metrics_path, {"type": "judge", "latency_s": (t2 - t1), "success": ok})
+    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+    _append_jsonl(
+        (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None,
+        {
+            "type": "judge",
+            "mock": False,
+            "model": os.getenv("MODEL") or "MiniMax-M2.7",
+            "latency_s": (t2 - t1),
+            "prompt": prompt,
+            "response": content,
+            "meta": {"question": question},
+        },
     )
-    label = json.loads(extract_json(response.choices[0].message.content))["label"]
-    return 1 if label == "CORRECT" else 0
+    if label == "CORRECT":
+        return 1
+    if label == "WRONG":
+        return 0
+    return 0

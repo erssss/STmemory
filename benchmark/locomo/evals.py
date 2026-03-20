@@ -1,7 +1,9 @@
 import argparse
 import concurrent.futures
 import json
+import os
 import threading
+import time
 from collections import defaultdict
 
 from metrics.llm_judge import evaluate_llm_judge
@@ -28,7 +30,10 @@ def process_item(item_data):
 
         metrics = calculate_metrics(pred_answer, gt_answer)
         bleu_scores = calculate_bleu_scores(pred_answer, gt_answer)
-        llm_score = evaluate_llm_judge(question, gt_answer, pred_answer)
+        try:
+            llm_score = evaluate_llm_judge(question, gt_answer, pred_answer)
+        except Exception:
+            llm_score = 0
 
         local_results[k].append(
             {
@@ -59,14 +64,29 @@ def main():
     results = defaultdict(list)
     results_lock = threading.Lock()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+    effective_workers = int(os.getenv("LOCOMO_EVAL_WORKERS") or str(args.max_workers))
+    if os.getenv("LOCOMO_USE_MOCK_LLM") != "1":
+        effective_workers = min(effective_workers, int(os.getenv("LOCOMO_EVAL_WORKERS_LIVE") or "1"))
+    effective_workers = max(1, effective_workers)
+    global_timeout_s = float(os.getenv("LOCOMO_EVAL_GLOBAL_TIMEOUT_S") or "3600")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=effective_workers) as executor:
         futures = [executor.submit(process_item, item_data) for item_data in data.items()]
 
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-            local_results = future.result()
-            with results_lock:
-                for k, items in local_results.items():
-                    results[k].extend(items)
+        t0 = time.time()
+        try:
+            for future in tqdm(concurrent.futures.as_completed(futures, timeout=global_timeout_s), total=len(futures)):
+                try:
+                    local_results = future.result()
+                except Exception:
+                    continue
+                with results_lock:
+                    for k, items in local_results.items():
+                        results[k].extend(items)
+        except concurrent.futures.TimeoutError:
+            for f in futures:
+                f.cancel()
+            raise RuntimeError(f"Evaluation timed out after {int(time.time() - t0)}s. Set LOCOMO_EVAL_GLOBAL_TIMEOUT_S/LOCOMO_EVAL_WORKERS_LIVE to tune.")
 
     with open(args.output_file, "w") as f:
         json.dump(results, f, indent=4)

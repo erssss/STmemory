@@ -2,7 +2,7 @@ import json
 import os
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import urllib.error
 import urllib.parse
@@ -124,11 +124,26 @@ class MemoryADD:
         if not self.data:
             raise ValueError("No data loaded. Please set data_path and call load_data() first.")
         max_workers = int(os.getenv("LOCOMO_ADD_WORKERS") or str(max_workers))
+        subset_indices_raw = (os.getenv("LOCOMO_SUBSET_INDICES") or "").strip()
+        subset_indices = None
+        if subset_indices_raw:
+            try:
+                subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
+            except Exception:
+                subset_indices = None
+
+        items = []
+        for orig_idx, item in enumerate(self.data):
+            if subset_indices is not None and orig_idx not in subset_indices:
+                continue
+            items.append((orig_idx, item))
+
         max_conversations = int(os.getenv("LOCOMO_MAX_CONVERSATIONS") or "0")
-        data = self.data[:max_conversations] if max_conversations > 0 else self.data
+        if subset_indices is None and max_conversations > 0:
+            items = items[:max_conversations]
 
         print("Deleting existing memories...")
-        for idx, item in enumerate(data):
+        for idx, item in items:
             conversation = item["conversation"]
             speaker_a = conversation["speaker_a"]
             speaker_b = conversation["speaker_b"]
@@ -139,7 +154,7 @@ class MemoryADD:
             self.delete_all_memories(speaker_b_user_id)
 
         all_tasks = []
-        for idx, item in enumerate(data):
+        for idx, item in items:
             conversation = item["conversation"]
 
             for key in conversation.keys():
@@ -148,12 +163,16 @@ class MemoryADD:
                 all_tasks.append((item, idx, key))
 
         print(f"Processing {len(all_tasks)} tasks with {max_workers} workers...")
+        future_timeout_s = float(os.getenv("LOCOMO_ADD_FUTURE_TIMEOUT_S") or "300")
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(self.process_conversation, item, idx, key) for item, idx, key in all_tasks]
 
-            for future in tqdm(futures, desc="Processing conversations", total=len(futures)):
-                future.result()
+            for future in tqdm(as_completed(futures), desc="Processing conversations", total=len(futures)):
+                try:
+                    future.result(timeout=future_timeout_s)
+                except Exception as e:
+                    print(f"Error processing conversation: {e}")
 
     def delete_all_memories(self, user_id, retries=3):
         for attempt in range(retries):

@@ -4,6 +4,7 @@ import time
 import threading
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple
 
 import urllib.error
 import urllib.request
@@ -13,7 +14,6 @@ except Exception:
     def load_dotenv(*args, **kwargs):
         return False
 from jinja2 import Template
-from openai import OpenAI
 from prompts import ANSWER_PROMPT, ANSWER_PROMPT_GRAPH
 try:
     from tqdm import tqdm
@@ -22,6 +22,57 @@ except Exception:
         return iterable
 
 load_dotenv()
+
+
+def _extract_text_from_anthropic_message(message: Any) -> str:
+    content = getattr(message, "content", None)
+    if not content:
+        return ""
+    parts: List[str] = []
+    for block in content:
+        block_type = getattr(block, "type", None)
+        if block_type is None and isinstance(block, dict):
+            block_type = block.get("type")
+        if block_type != "text":
+            continue
+        text = getattr(block, "text", None)
+        if text is None and isinstance(block, dict):
+            text = block.get("text")
+        if isinstance(text, str) and text.strip():
+            parts.append(text.strip())
+    return "\n".join(parts).strip()
+
+
+def _append_metrics(metrics_path: Optional[str], row: Dict[str, Any], lock: threading.Lock) -> None:
+    if not metrics_path:
+        return
+    try:
+        line = json.dumps(row, ensure_ascii=False)
+    except Exception:
+        return
+    try:
+        with lock:
+            with open(metrics_path, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.write("\n")
+    except Exception:
+        return
+
+
+def _append_jsonl(path: Optional[str], row: Dict[str, Any], lock: threading.Lock) -> None:
+    if not path:
+        return
+    try:
+        line = json.dumps(row, ensure_ascii=False)
+    except Exception:
+        return
+    try:
+        with lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.write("\n")
+    except Exception:
+        return
 
 
 class MemorySearch:
@@ -36,18 +87,11 @@ class MemorySearch:
             self.model = model
         else:
             raise ValueError("model is not set")
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if openai_api_key:
-            self.openai_api_key = openai_api_key
+        minimax_api_key = os.getenv("MINIMAX_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        if minimax_api_key:
+            self.minimax_api_key = minimax_api_key
         else:
-            raise ValueError("openai_api_key is not set")
-        openai_base_url = os.getenv("OPENAI_BASE_URL")
-        if openai_base_url:
-            self.openai_base_url = openai_base_url
-        else:
-            print("openai_base_url is not set, using default base url: https://api.openai.com/v1")
-            self.openai_base_url = "https://api.openai.com/v1"
-        self.openai_client = OpenAI(base_url=self.openai_base_url, api_key=self.openai_api_key)
+            self.minimax_api_key = ""
         self.top_k = top_k
         self.results = defaultdict(list)
         self.output_path = output_path
@@ -57,6 +101,10 @@ class MemorySearch:
         self.request_count = 0
         self.request_times = []
         self._lock = threading.Lock()
+        self._metrics_lock = threading.Lock()
+        self._metrics_path = os.getenv("MINIMAX_METRICS_PATH")
+        self._llm_log_lock = threading.Lock()
+        self._llm_log_path = (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None
 
         if self.is_graph:
             self.ANSWER_PROMPT = ANSWER_PROMPT_GRAPH
@@ -126,6 +174,71 @@ class MemorySearch:
             ]
         return semantic_memories, graph_memories, end_time - start_time
 
+    def _call_minimax(self, prompt: str, meta: Optional[Dict[str, Any]] = None) -> Tuple[str, float]:
+        try:
+            import anthropic
+        except Exception as e:
+            raise RuntimeError("anthropic package is required for MiniMax calls") from e
+
+        if not self.minimax_api_key:
+            raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY) is not set")
+
+        timeout_s = float(os.getenv("LOCOMO_LLM_REQUEST_TIMEOUT_S") or os.getenv("MINIMAX_REQUEST_TIMEOUT_S") or "60")
+        try:
+            client = anthropic.Anthropic(api_key=self.minimax_api_key, timeout=timeout_s)
+        except TypeError:
+            client = anthropic.Anthropic(api_key=self.minimax_api_key)
+        t1 = time.time()
+        try:
+            try:
+                message = client.messages.create(
+                    model=self.model,
+                    max_tokens=int(os.getenv("MINIMAX_MAX_TOKENS") or "512"),
+                    temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                    system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a helpful assistant.",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt}],
+                        }
+                    ],
+                    timeout=timeout_s,
+                )
+            except TypeError:
+                message = client.messages.create(
+                    model=self.model,
+                    max_tokens=int(os.getenv("MINIMAX_MAX_TOKENS") or "512"),
+                    temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                    system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a helpful assistant.",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt}],
+                        }
+                    ],
+                )
+        except Exception as e:
+            msg = str(e)
+            if "401" in msg or "authentication_error" in msg or "Authorization" in msg or "api key" in msg.lower():
+                raise RuntimeError("MiniMax authentication failed. Set MINIMAX_API_KEY or run with LOCOMO_USE_MOCK_LLM=1.") from e
+            raise
+        t2 = time.time()
+        response_text = _extract_text_from_anthropic_message(message)
+        _append_jsonl(
+            self._llm_log_path,
+            {
+                "type": "answer",
+                "mock": False,
+                "model": self.model,
+                "latency_s": (t2 - t1),
+                "prompt": prompt,
+                "response": response_text,
+                "meta": meta or {},
+            },
+            self._llm_log_lock,
+        )
+        return response_text, (t2 - t1)
+
     def answer_question(self, speaker_1_user_id, speaker_2_user_id, question, answer, category):
         speaker_1_memories, speaker_1_graph_memories, speaker_1_memory_time = self.search_memory(speaker_1_user_id, question)
         speaker_2_memories, speaker_2_graph_memories, speaker_2_memory_time = self.search_memory(speaker_2_user_id, question)
@@ -144,15 +257,64 @@ class MemorySearch:
             question=question,
         )
 
-        t1 = time.time()
+        if os.getenv("LOCOMO_USE_MOCK_LLM") == "1":
+            response_text = str(answer or "")
+            response_time = 0.0
+            _append_metrics(
+                self._metrics_path,
+                {"type": "answer", "latency_s": response_time, "success": bool(response_text), "mock": True},
+                self._metrics_lock,
+            )
+            _append_jsonl(
+                self._llm_log_path,
+                {
+                    "type": "answer",
+                    "mock": True,
+                    "model": self.model,
+                    "latency_s": response_time,
+                    "prompt": answer_prompt,
+                    "response": response_text,
+                    "meta": {"question": question, "category": category},
+                },
+                self._llm_log_lock,
+            )
+            return (
+                response_text,
+                speaker_1_memories,
+                speaker_2_memories,
+                speaker_1_memory_time,
+                speaker_2_memory_time,
+                speaker_1_graph_memories,
+                speaker_2_graph_memories,
+                response_time,
+            )
+
         try:
-            response = self.openai_client.chat.completions.create(
-                model=self.model, messages=[{"role": "system", "content": answer_prompt}], temperature=0.0
+            response_text, response_time = self._call_minimax(answer_prompt, meta={"question": question, "category": category})
+            _append_metrics(
+                self._metrics_path,
+                {"type": "answer", "latency_s": response_time, "success": bool(response_text)},
+                self._metrics_lock,
             )
         except Exception as e:
             print(f"Error processing question: {question[:100]}... Error: {e}")
+            _append_metrics(self._metrics_path, {"type": "answer", "latency_s": 0.0, "success": False, "error": str(e)}, self._metrics_lock)
+            _append_jsonl(
+                self._llm_log_path,
+                {
+                    "type": "answer",
+                    "mock": False,
+                    "model": self.model,
+                    "latency_s": 0.0,
+                    "prompt": answer_prompt,
+                    "response": "",
+                    "error": str(e),
+                    "meta": {"question": question, "category": category},
+                },
+                self._llm_log_lock,
+            )
             return (
-                "Unable to process this question due to API error.",
+                "Unable to process this question due to API error. Set MINIMAX_API_KEY or enable mock LLM (LOCOMO_USE_MOCK_LLM=1).",
                 speaker_1_memories,
                 speaker_2_memories,
                 speaker_1_memory_time,
@@ -161,10 +323,8 @@ class MemorySearch:
                 speaker_2_graph_memories,
                 0.0,
             )
-        t2 = time.time()
-        response_time = t2 - t1
         return (
-            response.choices[0].message.content,
+            response_text,
             speaker_1_memories,
             speaker_2_memories,
             speaker_1_memory_time,
@@ -221,6 +381,10 @@ class MemorySearch:
         speaker_a_user_id = f"{speaker_a}_{idx}"
         speaker_b_user_id = f"{speaker_b}_{idx}"
 
+        max_qa = int(os.getenv("LOCOMO_MAX_QA") or "0")
+        if max_qa > 0:
+            qa = (qa or [])[:max_qa]
+
         out = []
         for question_item in qa:
             out.append(self.process_question(question_item, speaker_a_user_id, speaker_b_user_id))
@@ -231,22 +395,40 @@ class MemorySearch:
             data = json.load(f)
 
         max_workers = int(os.getenv("LOCOMO_SEARCH_WORKERS") or "1")
+        subset_indices_raw = (os.getenv("LOCOMO_SUBSET_INDICES") or "").strip()
+        subset_indices: Optional[set] = None
+        if subset_indices_raw:
+            try:
+                subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
+            except Exception:
+                subset_indices = None
+
+        items: List[Tuple[int, Any]] = []
+        for orig_idx, item in enumerate(data):
+            if subset_indices is not None and orig_idx not in subset_indices:
+                continue
+            items.append((orig_idx, item))
+
         max_conversations = int(os.getenv("LOCOMO_MAX_CONVERSATIONS") or "0")
-        if max_conversations > 0:
-            data = data[:max_conversations]
+        if subset_indices is None and max_conversations > 0:
+            items = items[:max_conversations]
 
         if max_workers <= 1:
-            for idx, item in tqdm(enumerate(data), total=len(data), desc="Processing conversations"):
-                conv_id, conv_results = self._process_single_conversation(idx, item)
+            for orig_idx, item in tqdm(items, total=len(items), desc="Processing conversations"):
+                conv_id, conv_results = self._process_single_conversation(orig_idx, item)
                 self.results[conv_id] = conv_results
                 with open(self.output_path, "w") as f:
                     json.dump(self.results, f, indent=4)
             return
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(self._process_single_conversation, idx, item) for idx, item in enumerate(data)]
+            futures = [executor.submit(self._process_single_conversation, orig_idx, item) for orig_idx, item in items]
             for fut in tqdm(as_completed(futures), total=len(futures), desc="Processing conversations"):
-                conv_id, conv_results = fut.result()
+                try:
+                    conv_id, conv_results = fut.result()
+                except Exception as e:
+                    print(f"Error processing conversation: {e}")
+                    continue
                 self.results[conv_id] = conv_results
                 with open(self.output_path, "w") as f:
                     json.dump(self.results, f, indent=4)
