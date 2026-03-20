@@ -36,6 +36,10 @@ class MemoryConfig:
     beta_time: float = 0.3  # 时间权重
     gamma_layer: float = 0.1  # 层级权重
     token_budget_ratio: float = 0.8  # token预算比例
+    use_llm_summary: bool = False
+    summary_llm_model: str = "MiniMax-M2.7"
+    summary_llm_max_tokens: int = 256
+    summary_max_chars: int = 200
 
 
 class MemoryLayer(ABC):
@@ -154,13 +158,81 @@ class WorkingMemoryLayer(MemoryLayer):
         self.total_tokens = 0
         self.summaries: Dict[str, str] = {}
     
+    def _generate_summary_llm_minimax(self, query: str, response: str) -> str:
+        try:
+            import anthropic
+        except Exception:
+            return ""
+
+        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("MINIMAX_API_KEY") or ""
+        client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+
+        query_trimmed = (query or "").strip()
+        response_trimmed = (response or "").strip()
+        if len(query_trimmed) > 2000:
+            query_trimmed = query_trimmed[:2000]
+        if len(response_trimmed) > 4000:
+            response_trimmed = response_trimmed[:4000]
+
+        prompt = (
+            "请将下面的对话压缩为一个简洁摘要，保留关键事实、结论与实体。"
+            f"摘要长度不超过{self.config.summary_max_chars}个字符。"
+            "仅输出摘要正文，不要输出多余说明。"
+            "\n\n"
+            f"Q: {query_trimmed}\n"
+            f"A: {response_trimmed}\n"
+        )
+
+        message = client.messages.create(
+            model=self.config.summary_llm_model,
+            max_tokens=self.config.summary_llm_max_tokens,
+            system="你是一个擅长提炼关键信息的摘要助手。",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}],
+                }
+            ],
+        )
+
+        content = getattr(message, "content", None)
+        if not content:
+            return ""
+
+        parts: List[str] = []
+        for block in content:
+            block_type = getattr(block, "type", None)
+            if block_type is None and isinstance(block, dict):
+                block_type = block.get("type")
+            if block_type != "text":
+                continue
+            text = getattr(block, "text", None)
+            if text is None and isinstance(block, dict):
+                text = block.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+
+        return "\n".join(parts).strip()
+
+    def _generate_summary_simple(self, query: str, response: str) -> str:
+        combined = f"Q: {query}\nA: {response}"
+        max_chars = max(20, int(self.config.summary_max_chars))
+        if len(combined) > max_chars:
+            return combined[:max_chars] + "..."
+        return combined
+
     def _generate_summary(self, query: str, response: str) -> str:
         """生成对话摘要"""
-        # 简单的摘要生成逻辑，实际可以使用更复杂的算法
-        combined = f"Q: {query}\nA: {response}"
-        if len(combined) > 200:
-            return combined[:200] + "..."
-        return combined
+        use_llm = bool(self.config.use_llm_summary) or os.getenv("STMEMORY_USE_LLM_SUMMARY") == "1"
+        if use_llm:
+            summary = self._generate_summary_llm_minimax(query, response)
+            if summary:
+                max_chars = max(20, int(self.config.summary_max_chars))
+                if len(summary) > max_chars:
+                    return summary[:max_chars] + "..."
+                return summary
+
+        return self._generate_summary_simple(query, response)
     
     def add(self, entry: MemoryEntry) -> bool:
         """添加记忆条目，生成摘要"""

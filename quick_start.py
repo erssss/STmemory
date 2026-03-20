@@ -6,13 +6,14 @@
 import asyncio
 import sys
 import os
+import argparse
 from datetime import datetime
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from plugin import SpatioTemporalMemoryPlugin
+    from plugin import SpatioTemporalMemoryPlugin, make_openai_compatible_api_func
     from memory_layers import MemoryConfig
 except ImportError as e:
     print("❌ 导入失败，请先安装依赖:")
@@ -21,7 +22,7 @@ except ImportError as e:
     sys.exit(1)
 
 
-async def quick_demo():
+async def quick_demo(use_llm: bool, llm_base_url: str, llm_model: str, llm_api_key: str):
     """快速演示"""
     print("🚀 SpatioTemporal Memory System - 快速开始")
     print("=" * 50)
@@ -71,6 +72,18 @@ async def quick_demo():
             return "深度学习是机器学习的一个分支，使用多层神经网络从大量数据中学习复杂特征，常用于视觉与自然语言任务。"
         return f"我理解你在问：{prompt[:50]}..."
     
+    if use_llm:
+        api_key = llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+        base_url = llm_base_url or os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        model = llm_model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
+        openclaw_api_func = make_openai_compatible_api_func(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+        )
+    else:
+        openclaw_api_func = mock_openclaw_api
+    
     for i, query in enumerate(demo_queries, 1):
         print(f"\n💬 第{i}轮对话:")
         print(f"用户: {query}")
@@ -79,7 +92,7 @@ async def quick_demo():
         before_perf_stats = plugin.get_performance_stats()["performance"]
         
         print("🔄 处理查询中...")
-        result = await plugin.process_query(query, mock_openclaw_api)
+        result = await plugin.process_query(query, openclaw_api_func)
         print(f"助手: {result['response']}")
         
         after_memory_stats = plugin.get_memory_stats()
@@ -134,7 +147,14 @@ async def quick_demo():
 async def main():
     """主函数"""
     try:
-        await quick_demo()
+        parser = argparse.ArgumentParser(description="SpatioTemporal Memory System 快速开始")
+        parser.add_argument("--use-llm", action="store_true", help="启用真实LLM API（OpenAI兼容 /v1/chat/completions）")
+        parser.add_argument("--llm-base-url", default="", help="LLM Base URL，例如 https://api.openai.com/v1")
+        parser.add_argument("--llm-model", default="", help="LLM 模型名，例如 gpt-4o-mini")
+        parser.add_argument("--llm-api-key", default="", help="LLM API Key（也可用环境变量 LLM_API_KEY / OPENAI_API_KEY）")
+        args = parser.parse_args()
+        
+        await quick_demo(args.use_llm, args.llm_base_url, args.llm_model, args.llm_api_key)
     except KeyboardInterrupt:
         print("\n\n用户中断演示")
     except Exception as e:
