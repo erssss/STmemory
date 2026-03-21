@@ -1,5 +1,4 @@
 import json
-import os
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,12 +22,21 @@ load_dotenv()
 
 
 class MemoryADD:
-    def __init__(self, data_path=None, batch_size=2, is_graph=False):
-        api_base_url = os.getenv("API_BASE_URL")
-        if api_base_url:
-            self.api_base_url = api_base_url
-        else:
-            raise ValueError("api_base_url is not set")
+    def __init__(
+        self,
+        api_base_url: str,
+        data_path: str = None,
+        batch_size: int = 2,
+        is_graph: bool = False,
+        add_workers: int = 10,
+        subset_indices: str = "",
+        max_conversations: int = 0,
+        add_future_timeout_s: float = 300.0,
+    ):
+        api_base_url = str(api_base_url or "").strip()
+        if not api_base_url:
+            raise ValueError("api_base_url is required")
+        self.api_base_url = api_base_url
         self.batch_size = batch_size
         self.data_path = data_path
         self.data = None
@@ -37,6 +45,17 @@ class MemoryADD:
         self.request_count = 0
         self.request_times = []
         self._lock = threading.Lock()
+        self.add_workers = int(add_workers)
+        self.max_conversations = int(max_conversations)
+        self.add_future_timeout_s = float(add_future_timeout_s)
+        subset_indices_raw = str(subset_indices or "").strip()
+        if subset_indices_raw:
+            try:
+                self.subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
+            except Exception:
+                self.subset_indices = None
+        else:
+            self.subset_indices = None
         if data_path:
             self.load_data()
 
@@ -61,7 +80,7 @@ class MemoryADD:
                 response_body = b""
                 status_code = 0
                 try:
-                    with urllib.request.urlopen(request, timeout=30) as response:
+                    with urllib.request.urlopen(request, timeout=120) as response:
                         status_code = int(getattr(response, "status", 0) or 0)
                         response_body = response.read() or b""
                 except urllib.error.HTTPError as e:
@@ -123,14 +142,8 @@ class MemoryADD:
     def process_all_conversations(self, max_workers=10):
         if not self.data:
             raise ValueError("No data loaded. Please set data_path and call load_data() first.")
-        max_workers = int(os.getenv("LOCOMO_ADD_WORKERS") or str(max_workers))
-        subset_indices_raw = (os.getenv("LOCOMO_SUBSET_INDICES") or "").strip()
-        subset_indices = None
-        if subset_indices_raw:
-            try:
-                subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
-            except Exception:
-                subset_indices = None
+        max_workers = int(self.add_workers if self.add_workers is not None else max_workers)
+        subset_indices = self.subset_indices
 
         items = []
         for orig_idx, item in enumerate(self.data):
@@ -138,9 +151,8 @@ class MemoryADD:
                 continue
             items.append((orig_idx, item))
 
-        max_conversations = int(os.getenv("LOCOMO_MAX_CONVERSATIONS") or "0")
-        if subset_indices is None and max_conversations > 0:
-            items = items[:max_conversations]
+        if subset_indices is None and int(self.max_conversations) > 0:
+            items = items[: int(self.max_conversations)]
 
         print("Deleting existing memories...")
         for idx, item in items:
@@ -163,7 +175,7 @@ class MemoryADD:
                 all_tasks.append((item, idx, key))
 
         print(f"Processing {len(all_tasks)} tasks with {max_workers} workers...")
-        future_timeout_s = float(os.getenv("LOCOMO_ADD_FUTURE_TIMEOUT_S") or "300")
+        future_timeout_s = float(self.add_future_timeout_s)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(self.process_conversation, item, idx, key) for item, idx, key in all_tasks]
@@ -183,7 +195,7 @@ class MemoryADD:
                 response_body = b""
                 status_code = 0
                 try:
-                    with urllib.request.urlopen(request, timeout=30) as response:
+                    with urllib.request.urlopen(request, timeout=120) as response:
                         status_code = int(getattr(response, "status", 0) or 0)
                         response_body = response.read() or b""
                 except urllib.error.HTTPError as e:

@@ -1,9 +1,12 @@
 import asyncio
 import json
 import time
+import os
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 import uuid
+
+from compression import estimate_tokens
 
 from memory_layers import (
     MemoryEntry, MemoryConfig, MemoryLayer,
@@ -19,11 +22,12 @@ def make_openai_compatible_api_func(
     base_url: str,
     model: str,
     timeout_s: int = 60,
+    require_api_key: bool = True,
 ):
     base_url = (base_url or "").rstrip("/")
     if not base_url:
         raise ValueError("base_url is required")
-    if not api_key:
+    if require_api_key and not api_key:
         raise ValueError("api_key is required")
     if not model:
         raise ValueError("model is required")
@@ -32,10 +36,9 @@ def make_openai_compatible_api_func(
         import aiohttp
         
         url = f"{base_url}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -62,6 +65,132 @@ def make_openai_compatible_api_func(
     return _call
 
 
+async def check_openai_compatible_model_available(
+    base_url: str,
+    model: str,
+    api_key: str = "",
+    timeout_s: int = 5,
+) -> None:
+    import aiohttp
+
+    base_url = (base_url or "").rstrip("/")
+    if not base_url:
+        raise RuntimeError("本地LLM不可用：base_url为空")
+    if not model:
+        raise RuntimeError("本地LLM不可用：model为空")
+
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    timeout = aiohttp.ClientTimeout(total=max(1, int(timeout_s)))
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        models_url = f"{base_url}/models"
+        try:
+            async with session.get(models_url, headers=headers) as resp:
+                data = await resp.json(content_type=None)
+                if resp.status >= 400:
+                    raise RuntimeError(f"GET {models_url} 返回HTTP {resp.status}: {data}")
+        except aiohttp.ClientError as e:
+            raise RuntimeError(f"无法连接本地LLM服务：{models_url}，错误：{e}") from e
+        except Exception as e:
+            raise RuntimeError(f"本地LLM服务响应异常：{models_url}，错误：{e}") from e
+
+        ids: List[str] = []
+        try:
+            for item in (data.get("data") or []):
+                if isinstance(item, dict) and item.get("id"):
+                    ids.append(str(item["id"]))
+        except Exception:
+            ids = []
+
+        if model in ids:
+            return
+
+        sample = ", ".join(ids[:8]) if ids else ""
+        hint = "请确认本地模型已启动并已拉取模型，例如：ollama serve && ollama pull <模型名>"
+        if sample:
+            raise RuntimeError(f"本地LLM不可用：未发现模型 {model}（可用模型示例：{sample}）。{hint}")
+        raise RuntimeError(f"本地LLM不可用：未发现模型 {model}。{hint}")
+
+
+class ConfiguredLLMCaller:
+    def __init__(
+        self,
+        local_call,
+        local_base_url: str,
+        local_model: str,
+        local_timeout_s: int,
+        local_check: bool,
+    ):
+        self._local_call = local_call
+        self._local_base_url = str(local_base_url or "")
+        self._local_model = str(local_model or "")
+        self._local_timeout_s = int(local_timeout_s or 0) if local_timeout_s is not None else 0
+        self._local_check = bool(local_check)
+        self._local_checked: Optional[bool] = None
+        self._local_check_error: Optional[str] = None
+
+    async def __call__(self, prompt: str) -> str:
+        if self._local_checked is None and self._local_check:
+            try:
+                await check_openai_compatible_model_available(
+                    base_url=self._local_base_url,
+                    model=self._local_model,
+                    api_key="",
+                    timeout_s=max(1, self._local_timeout_s or 5),
+                )
+                self._local_checked = True
+            except Exception as e:
+                self._local_checked = False
+                self._local_check_error = str(e)
+
+        if self._local_checked is False:
+            raise RuntimeError(self._local_check_error or "本地LLM不可用")
+
+        try:
+            return await self._local_call(prompt)
+        except Exception as e:
+            raise RuntimeError(f"本地LLM调用失败：{e}") from e
+
+
+def make_configured_llm_api_func(
+    config: MemoryConfig,
+    remote_api_key: str = "",
+):
+    provider = str(getattr(config, "llm_provider", "ollama") or "ollama").strip().lower()
+    if provider in {"local", "local_llm", "ollama"}:
+        local_base_url = str(getattr(config, "local_llm_base_url", "") or "").strip()
+        local_model = str(getattr(config, "local_llm_model", "") or "").strip()
+        local_timeout_s = int(getattr(config, "local_llm_timeout_s", 60) or 60)
+        local_check = bool(getattr(config, "local_llm_check", True))
+
+        local_call = make_openai_compatible_api_func(
+            api_key="",
+            base_url=local_base_url,
+            model=local_model,
+            timeout_s=local_timeout_s,
+            require_api_key=False,
+        )
+
+        return ConfiguredLLMCaller(
+            local_call=local_call,
+            local_base_url=local_base_url,
+            local_model=local_model,
+            local_timeout_s=local_timeout_s,
+            local_check=local_check,
+        )
+
+    api_key = remote_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+    return make_openai_compatible_api_func(
+        api_key=api_key,
+        base_url=str(getattr(config, "llm_base_url", "") or "").strip(),
+        model=str(getattr(config, "llm_model", "") or "").strip(),
+        timeout_s=60,
+        require_api_key=True,
+    )
+
+
 class SpatioTemporalMemoryPlugin:
     """OpenClaw插件：分层时空记忆系统"""
     
@@ -83,6 +212,9 @@ class SpatioTemporalMemoryPlugin:
         self.config = memory_config or MemoryConfig()
         self.enable_logging = enable_logging
         
+        # 初始化排序器
+        self.ranker = SpatioTemporalRanker(self.config)
+
         # 初始化各层记忆
         self.layers: Dict[str, MemoryLayer] = {
             "shallow": ShallowMemoryLayer(self.config),
@@ -90,9 +222,11 @@ class SpatioTemporalMemoryPlugin:
             "deep": DeepMemoryLayer(self.config),
             "meta": MetaMemoryLayer(self.config)
         }
-        
-        # 初始化排序器
-        self.ranker = SpatioTemporalRanker(self.config)
+
+        try:
+            self.layers["deep"].set_encoder(self.ranker._encode_texts)
+        except Exception:
+            pass
         
         # 初始化预算控制器
         self.budget_controller = BudgetController(model_name)
@@ -123,14 +257,7 @@ class SpatioTemporalMemoryPlugin:
     
     def _estimate_token_count(self, text: str) -> int:
         """估算文本token数量（简化版本）"""
-        # 粗略估算：1个token ≈ 0.75个英文单词或1个中文字符
-        words = text.split()
-        english_tokens = len(words) * 0.75
-        
-        # 计算中文字符
-        chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
-        
-        return int(english_tokens + chinese_chars)
+        return int(estimate_tokens(text))
     
     def _create_memory_entry(self, query: str, response: str, layer: str) -> MemoryEntry:
         """创建记忆条目"""
@@ -144,7 +271,8 @@ class SpatioTemporalMemoryPlugin:
             response=response,
             timestamp=timestamp,
             layer=layer,
-            token_count=token_count
+            token_count=token_count,
+            metadata={"created_at": timestamp.isoformat()}
         )
     
     def _build_context_from_memories(self, memories: List[MemoryEntry]) -> str:
@@ -154,7 +282,27 @@ class SpatioTemporalMemoryPlugin:
         
         context_parts = []
         for memory in memories:
-            context_parts.append(f"Previous conversation:\nQ: {memory.query}\nA: {memory.response}")
+            ts = memory.timestamp.isoformat() if isinstance(memory.timestamp, datetime) else ""
+            q = memory.query
+            r = memory.response
+            if memory.layer == "working" and memory.metadata:
+                s = str(memory.metadata.get("summary") or "").strip()
+                if s:
+                    context_parts.append(f"[{ts}]\n{s}")
+                    continue
+            if memory.metadata and self.config.deep_return_compressed:
+                cq = str(memory.metadata.get("compressed_query") or "").strip()
+                cr = str(memory.metadata.get("compressed_response") or "").strip()
+                if cq:
+                    q = cq
+                if cr or (memory.layer != "deep"):
+                    r = cr if cr else r
+                else:
+                    r = ""
+            if r:
+                context_parts.append(f"[{ts}]\nQ: {q}\nA: {r}")
+            else:
+                context_parts.append(f"[{ts}]\n{q}")
         
         return "\n\n".join(context_parts)
     
@@ -198,10 +346,34 @@ class SpatioTemporalMemoryPlugin:
         
         # 从各层检索记忆
         all_memories = {}
+        layer_weights = {"shallow": 1.0, "working": 1.0, "deep": 2.0}
+        active: Dict[str, float] = {}
         for layer_name, layer in self.layers.items():
-            if layer_name != "meta":  # 元记忆不直接参与检索
-                memories = layer.retrieve(query, memory_budget // 4)  # 每层分配1/4预算
-                all_memories[layer_name] = memories
+            if layer_name == "meta":
+                continue
+            try:
+                entries = int((layer.get_stats() or {}).get("entries") or 0)
+            except Exception:
+                entries = 0
+            if entries <= 0:
+                continue
+            active[layer_name] = float(layer_weights.get(layer_name, 1.0))
+
+        if not active:
+            return "", 0, []
+
+        total_w = sum(active.values()) or 1.0
+        budgets = {k: max(10, int(memory_budget * (w / total_w))) for k, w in active.items()}
+        budgets[max(budgets, key=lambda k: budgets[k])] += max(0, memory_budget - sum(budgets.values()))
+
+        for layer_name, layer in self.layers.items():
+            if layer_name == "meta":
+                continue
+            b = budgets.get(layer_name)
+            if b is None or b <= 0:
+                continue
+            memories = layer.retrieve(query, b)
+            all_memories[layer_name] = memories
         
         # 使用时空排序器选择最优记忆组合
         current_time = datetime.now()
@@ -221,8 +393,21 @@ class SpatioTemporalMemoryPlugin:
         self._log(f"Memory retrieval completed in {latency_ms:.2f}ms, found {len(selected_memories)} memories")
         
         return context, memory_tokens, selected_memories
+
+    async def vector_search(self, query: str, top_k: int = 10, distance: str = "cosine") -> Dict[str, Any]:
+        layer = self.layers.get("deep")
+        if layer is None:
+            return {"results": []}
+        fn = getattr(layer, "vector_search", None)
+        if fn is None:
+            return {"results": []}
+        try:
+            res = fn(str(query or ""), top_k=int(top_k), distance=str(distance or "cosine"))
+        except Exception:
+            res = []
+        return {"results": res}
     
-    async def process_query(self, query: str, openclaw_api_func) -> Dict[str, Any]:
+    async def process_query(self, query: str, openclaw_api_func=None) -> Dict[str, Any]:
         """
         处理用户查询
         
@@ -237,6 +422,8 @@ class SpatioTemporalMemoryPlugin:
         
         try:
             self._log(f"Processing query: {query[:100]}...")
+            if openclaw_api_func is None:
+                openclaw_api_func = make_configured_llm_api_func(self.config)
             
             # 1. 检索相关记忆
             context, memory_tokens, relevant_memories = await self.retrieve_relevant_memories(query)
@@ -380,6 +567,23 @@ class SpatioTemporalMemoryPlugin:
             "ranker": self.ranker.get_stats(),
             "recent_queries": self.query_log[-10:] if self.query_log else []
         }
+
+    def get_vector_store_stats(self) -> Dict[str, Any]:
+        layer = self.layers.get("deep")
+        store = getattr(layer, "_vector_store", None) if layer is not None else None
+        provider = str(getattr(self.config, "deep_vector_store_provider", "numpy") or "numpy")
+        out: Dict[str, Any] = {"provider": provider}
+        if store is None:
+            return out
+        if getattr(store, "collection_name", None) is not None:
+            out["collection_name"] = str(getattr(store, "collection_name"))
+        st = getattr(store, "stats", None)
+        if st is not None and getattr(st, "to_dict", None) is not None:
+            try:
+                out["stats"] = st.to_dict()
+            except Exception:
+                pass
+        return out
     
     def export_configuration(self) -> Dict[str, Any]:
         """导出配置"""

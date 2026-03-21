@@ -3,6 +3,8 @@ import os
 import re
 import threading
 import time
+import urllib.request
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 _METRICS_LOCK = threading.Lock()
@@ -110,17 +112,64 @@ def _mock_judge(gold_answer: str, generated_answer: str) -> int:
     return 1 if overlap >= 0.5 else 0
 
 
-def evaluate_llm_judge(question, gold_answer, generated_answer):
-    if os.getenv("LOCOMO_USE_MOCK_LLM") == "1":
+def _normalize_llm_provider(value: str) -> str:
+    v = str(value or "").strip().lower()
+    if v in {"local", "ollama"}:
+        return "ollama"
+    if v in {"openai", "openai_compat", "openai-compatible", "openai_compatible"}:
+        return "openai_compat"
+    if v in {"remote", "minimax", "anthropic"}:
+        return "anthropic"
+    return ""
+
+
+def _normalize_openai_base_url(base_url: str) -> str:
+    s = str(base_url or "").strip().rstrip("/")
+    if not s:
+        return s
+    if "/v1" in s:
+        return s
+    if s.startswith("http://127.0.0.1:11434") or s.startswith("http://localhost:11434"):
+        return f"{s}/v1"
+    return s
+
+
+def _normalize_ollama_base_url(base_url: str) -> str:
+    s = str(base_url or "").strip().rstrip("/")
+    if not s:
+        return s
+    if s.endswith("/v1"):
+        s = s[:-3].rstrip("/")
+    return s
+
+
+@dataclass
+class LocomoJudgeConfig:
+    use_mock_llm: bool = False
+    model: str = "MiniMax-M2.7"
+    metrics_path: Optional[str] = None
+    llm_log_path: Optional[str] = None
+    request_timeout_s: float = 60.0
+    max_tokens: int = 256
+    temperature: float = 0.0
+    system_prompt: str = "You are a rigorous evaluator."
+    llm_provider: str = ""
+    openai_base_url: str = ""
+    openai_api_key: str = ""
+
+
+def evaluate_llm_judge(question, gold_answer, generated_answer, config: Optional[LocomoJudgeConfig] = None):
+    cfg = config or LocomoJudgeConfig()
+    if bool(cfg.use_mock_llm):
         score = _mock_judge(gold_answer, generated_answer)
-        _append_metrics(os.getenv("MINIMAX_METRICS_PATH"), {"type": "judge", "latency_s": 0.0, "success": True, "mock": True})
+        _append_metrics(cfg.metrics_path, {"type": "judge", "latency_s": 0.0, "success": True, "mock": True})
         prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
         _append_jsonl(
-            (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None,
+            cfg.llm_log_path,
             {
                 "type": "judge",
                 "mock": True,
-                "model": os.getenv("MODEL") or "MiniMax-M2.7",
+                "model": str(cfg.model or "MiniMax-M2.7"),
                 "latency_s": 0.0,
                 "prompt": prompt,
                 "response": json.dumps({"label": "CORRECT" if score == 1 else "WRONG"}),
@@ -128,6 +177,139 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
             },
         )
         return score
+
+    provider = _normalize_llm_provider(cfg.llm_provider) or _normalize_llm_provider(os.getenv("LOCOMO_LLM_PROVIDER") or "")
+    if not provider:
+        raw_base = str(getattr(cfg, "openai_base_url", "") or "").strip() or str(os.getenv("OPENAI_BASE_URL") or "").strip()
+        if "127.0.0.1:11434" in raw_base or "localhost:11434" in raw_base:
+            provider = "ollama"
+        elif raw_base:
+            provider = "openai_compat"
+        else:
+            provider = "anthropic"
+
+    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+
+    if provider == "ollama":
+        raw_base = str(getattr(cfg, "openai_base_url", "") or "").strip() or str(os.getenv("OPENAI_BASE_URL") or "").strip() or "http://127.0.0.1:11434"
+        base = _normalize_ollama_base_url(raw_base)
+        url = f"{base}/api/chat"
+        payload: Dict[str, Any] = {
+            "model": str(cfg.model or ""),
+            "stream": False,
+            "format": "json",
+            "messages": [
+                {"role": "system", "content": str(cfg.system_prompt)},
+                {"role": "user", "content": prompt},
+            ],
+        }
+        temp = float(cfg.temperature)
+        payload["options"] = {"num_ctx": 32768}
+        if temp != 0.0:
+            payload["options"]["temperature"] = temp
+        t1 = time.time()
+        req = urllib.request.Request(
+            url=url,
+            method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=float(cfg.request_timeout_s)) as resp:
+                raw = (resp.read() or b"").decode("utf-8", errors="replace")
+        except Exception as e:
+            raise RuntimeError(f"Ollama /api/chat judge request failed. url={url}") from e
+        t2 = time.time()
+        data = json.loads(raw) if raw.strip() else {}
+        content = str((((data.get("message") or {}) or {}).get("content") or ""))
+        try:
+            label = json.loads(extract_json(content)).get("label")
+        except Exception:
+            label = None
+        if label not in ("CORRECT", "WRONG"):
+            s = content.upper()
+            if "CORRECT" in s and "WRONG" not in s:
+                label = "CORRECT"
+            elif "WRONG" in s and "CORRECT" not in s:
+                label = "WRONG"
+
+        ok = bool(label in ("CORRECT", "WRONG"))
+        _append_metrics(cfg.metrics_path, {"type": "judge", "latency_s": (t2 - t1), "success": ok, "provider": "ollama"})
+        _append_jsonl(
+            cfg.llm_log_path,
+            {
+                "type": "judge",
+                "mock": False,
+                "model": str(cfg.model or ""),
+                "latency_s": (t2 - t1),
+                "prompt": prompt,
+                "response": content,
+                "meta": {"question": question},
+            },
+        )
+        return 1 if label == "CORRECT" else 0
+
+    if provider == "openai_compat":
+        try:
+            from openai import OpenAI
+        except Exception as e:
+            raise RuntimeError("openai (shim) package is required for OpenAI-compatible judge") from e
+
+        base_url = _normalize_openai_base_url(
+            str(getattr(cfg, "openai_base_url", "") or "").strip()
+            or str(os.getenv("OPENAI_BASE_URL") or "").strip()
+            or "http://127.0.0.1:11434/v1"
+        )
+        api_key = str(getattr(cfg, "openai_api_key", "") or "").strip() or str(os.getenv("OPENAI_API_KEY") or "").strip()
+        client = OpenAI(base_url=base_url, api_key=api_key, timeout=float(cfg.request_timeout_s))
+        t1 = time.time()
+        try:
+            resp = client.chat.completions.create(
+                model=str(cfg.model or ""),
+                messages=[
+                    {"role": "system", "content": str(cfg.system_prompt)},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+                temperature=float(cfg.temperature),
+            )
+        except Exception:
+            resp = client.chat.completions.create(
+                model=str(cfg.model or ""),
+                messages=[
+                    {"role": "system", "content": str(cfg.system_prompt)},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=float(cfg.temperature),
+            )
+        t2 = time.time()
+        content = str(resp.choices[0].message.content or "")
+        try:
+            label = json.loads(extract_json(content)).get("label")
+        except Exception:
+            label = None
+        if label not in ("CORRECT", "WRONG"):
+            s = content.upper()
+            if "CORRECT" in s and "WRONG" not in s:
+                label = "CORRECT"
+            elif "WRONG" in s and "CORRECT" not in s:
+                label = "WRONG"
+
+        ok = bool(label in ("CORRECT", "WRONG"))
+        _append_metrics(cfg.metrics_path, {"type": "judge", "latency_s": (t2 - t1), "success": ok, "provider": "openai_compat"})
+        _append_jsonl(
+            cfg.llm_log_path,
+            {
+                "type": "judge",
+                "mock": False,
+                "model": str(cfg.model or ""),
+                "latency_s": (t2 - t1),
+                "prompt": prompt,
+                "response": content,
+                "meta": {"question": question},
+            },
+        )
+        return 1 if label == "CORRECT" else 0
 
     try:
         import anthropic
@@ -138,21 +320,20 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
     if not api_key:
         raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY) is not set")
 
-    timeout_s = float(os.getenv("LOCOMO_LLM_REQUEST_TIMEOUT_S") or os.getenv("MINIMAX_REQUEST_TIMEOUT_S") or "60")
+    timeout_s = float(cfg.request_timeout_s)
     try:
         client = anthropic.Anthropic(api_key=api_key, timeout=timeout_s)
     except TypeError:
         client = anthropic.Anthropic(api_key=api_key)
 
-    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
     t1 = time.time()
     try:
         try:
             message = client.messages.create(
-                model=os.getenv("MODEL") or "MiniMax-M2.7",
-                max_tokens=int(os.getenv("MINIMAX_JUDGE_MAX_TOKENS") or os.getenv("MINIMAX_MAX_TOKENS") or "256"),
-                temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
-                system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a rigorous evaluator.",
+                model=str(cfg.model or "MiniMax-M2.7"),
+                max_tokens=int(cfg.max_tokens),
+                temperature=float(cfg.temperature),
+                system=str(cfg.system_prompt),
                 messages=[
                     {
                         "role": "user",
@@ -163,10 +344,10 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
             )
         except TypeError:
             message = client.messages.create(
-                model=os.getenv("MODEL") or "MiniMax-M2.7",
-                max_tokens=int(os.getenv("MINIMAX_JUDGE_MAX_TOKENS") or os.getenv("MINIMAX_MAX_TOKENS") or "256"),
-                temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
-                system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a rigorous evaluator.",
+                model=str(cfg.model or "MiniMax-M2.7"),
+                max_tokens=int(cfg.max_tokens),
+                temperature=float(cfg.temperature),
+                system=str(cfg.system_prompt),
                 messages=[
                     {
                         "role": "user",
@@ -182,21 +363,19 @@ def evaluate_llm_judge(question, gold_answer, generated_answer):
     t2 = time.time()
 
     content = _extract_text_from_anthropic_message(message)
-    metrics_path = os.getenv("MINIMAX_METRICS_PATH")
     try:
         label = json.loads(extract_json(content)).get("label")
         ok = bool(label in ("CORRECT", "WRONG"))
     except Exception:
         label = None
         ok = False
-    _append_metrics(metrics_path, {"type": "judge", "latency_s": (t2 - t1), "success": ok})
-    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+    _append_metrics(cfg.metrics_path, {"type": "judge", "latency_s": (t2 - t1), "success": ok})
     _append_jsonl(
-        (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None,
+        cfg.llm_log_path,
         {
             "type": "judge",
             "mock": False,
-            "model": os.getenv("MODEL") or "MiniMax-M2.7",
+            "model": str(cfg.model or "MiniMax-M2.7"),
             "latency_s": (t2 - t1),
             "prompt": prompt,
             "response": content,

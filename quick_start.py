@@ -13,7 +13,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from plugin import SpatioTemporalMemoryPlugin, make_openai_compatible_api_func
+    from plugin import SpatioTemporalMemoryPlugin, make_openai_compatible_api_func, make_configured_llm_api_func
     from memory_layers import MemoryConfig
 except ImportError as e:
     print("❌ 导入失败，请先安装依赖:")
@@ -22,7 +22,15 @@ except ImportError as e:
     sys.exit(1)
 
 
-async def quick_demo(use_llm: bool, llm_base_url: str, llm_model: str, llm_api_key: str):
+async def quick_demo(
+    use_llm: bool,
+    llm_base_url: str,
+    llm_model: str,
+    llm_api_key: str,
+    llm_provider: str,
+    local_llm_base_url: str,
+    local_llm_model: str,
+):
     """快速演示"""
     print("🚀 SpatioTemporal Memory System - 快速开始")
     print("=" * 50)
@@ -40,6 +48,16 @@ async def quick_demo(use_llm: bool, llm_base_url: str, llm_model: str, llm_api_k
         beta_time=0.3,
         gamma_layer=0.2
     )
+    if llm_base_url:
+        config.llm_base_url = str(llm_base_url)
+    if llm_model:
+        config.llm_model = str(llm_model)
+    if llm_provider:
+        config.llm_provider = str(llm_provider)
+    if local_llm_base_url:
+        config.local_llm_base_url = str(local_llm_base_url)
+    if local_llm_model:
+        config.local_llm_model = str(local_llm_model)
     
     # 初始化插件
     print("🔄 初始化记忆系统...")
@@ -73,14 +91,18 @@ async def quick_demo(use_llm: bool, llm_base_url: str, llm_model: str, llm_api_k
         return f"我理解你在问：{prompt[:50]}..."
     
     if use_llm:
-        api_key = llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-        base_url = llm_base_url or os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-        model = llm_model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
-        openclaw_api_func = make_openai_compatible_api_func(
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-        )
+        provider = str(config.llm_provider or "remote").strip().lower()
+        if provider in {"local", "local_llm", "ollama"}:
+            openclaw_api_func = make_configured_llm_api_func(config, remote_api_key=llm_api_key or "")
+        else:
+            api_key = llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+            base_url = str(llm_base_url or config.llm_base_url or "").strip()
+            model = str(llm_model or config.llm_model or "").strip()
+            openclaw_api_func = make_openai_compatible_api_func(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+            )
     else:
         openclaw_api_func = mock_openclaw_api
     
@@ -152,9 +174,20 @@ async def main():
         parser.add_argument("--llm-base-url", default="", help="LLM Base URL，例如 https://api.openai.com/v1")
         parser.add_argument("--llm-model", default="", help="LLM 模型名，例如 gpt-4o-mini")
         parser.add_argument("--llm-api-key", default="", help="LLM API Key（也可用环境变量 LLM_API_KEY / OPENAI_API_KEY）")
+        parser.add_argument("--llm-provider", default="ollama", help="LLM 提供方：ollama/local 或 remote")
+        parser.add_argument("--local-llm-base-url", default="", help="本地LLM Base URL，例如 http://localhost:11434/v1")
+        parser.add_argument("--local-llm-model", default="", help="本地LLM 模型名，例如 qwen3.5-9b")
         args = parser.parse_args()
         
-        await quick_demo(args.use_llm, args.llm_base_url, args.llm_model, args.llm_api_key)
+        await quick_demo(
+            args.use_llm,
+            args.llm_base_url,
+            args.llm_model,
+            args.llm_api_key,
+            args.llm_provider,
+            args.local_llm_base_url,
+            args.local_llm_model,
+        )
     except KeyboardInterrupt:
         print("\n\n用户中断演示")
     except Exception as e:

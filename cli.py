@@ -8,6 +8,8 @@ from typing import Dict, Any, Optional
 from plugin import SpatioTemporalMemoryPlugin, get_plugin, cleanup_plugin
 from memory_layers import MemoryConfig
 from budget import BudgetController
+from memory_layers import DeepMemoryLayer
+from ranker import SpatioTemporalRanker
 
 
 # Mock OpenClaw API函数
@@ -138,6 +140,56 @@ def stats(model: str, output: Optional[str]):
     
     memory_stats = plugin.get_memory_stats()
     performance_stats = plugin.get_performance_stats()
+
+
+@cli.command()
+@click.option('--config', '-c', help='配置文件路径')
+@click.option('--db', help='深层记忆SQLite路径')
+@click.option('--provider', default=None, help='向量库后端: numpy/sqlite')
+@click.option('--dedup/--no-dedup', default=True, help='是否执行精确去重')
+@click.option('--compress/--no-compress', default=True, help='是否执行聚类压缩')
+@click.option('--threshold', default=0.88, show_default=True, help='聚类相似度阈值')
+@click.option('--min-cluster-size', default=3, show_default=True, help='最小簇大小')
+@click.option('--max-clusters', default=5, show_default=True, help='最多处理簇数量')
+@click.option('--delete-sources/--keep-sources', default=True, help='压缩后是否删除源记忆')
+def optimize_deep(
+    config: Optional[str],
+    db: Optional[str],
+    provider: Optional[str],
+    dedup: bool,
+    compress: bool,
+    threshold: float,
+    min_cluster_size: int,
+    max_clusters: int,
+    delete_sources: bool,
+):
+    memory_config = None
+    if config:
+        with open(config, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+            memory_config = MemoryConfig(**config_data.get('memory_config', {}))
+    memory_config = memory_config or MemoryConfig()
+    if db:
+        memory_config.deep_persist_path = str(db)
+    if provider:
+        memory_config.deep_vector_store_provider = str(provider)
+
+    layer = DeepMemoryLayer(memory_config)
+    try:
+        ranker = SpatioTemporalRanker(memory_config)
+        layer.set_encoder(ranker._encode_texts)
+    except Exception:
+        pass
+
+    stats = layer.optimize(
+        deduplicate_exact=bool(dedup),
+        compress=bool(compress),
+        similarity_threshold=float(threshold),
+        min_cluster_size=int(min_cluster_size),
+        max_clusters=int(max_clusters),
+        delete_sources=bool(delete_sources),
+    )
+    click.echo(json.dumps(stats, ensure_ascii=False, indent=2))
     
     stats_data = {
         "timestamp": datetime.now().isoformat(),
@@ -183,7 +235,19 @@ def generate_config(output: str):
             "alpha_similarity": 0.6,
             "beta_time": 0.3,
             "gamma_layer": 0.1,
-            "token_budget_ratio": 0.8
+            "token_budget_ratio": 0.8,
+            "llm_provider": "ollama",
+            "llm_base_url": "https://api.openai.com/v1",
+            "llm_model": "gpt-4o-mini",
+            "local_llm_base_url": "http://localhost:11434/v1",
+            "local_llm_model": "qwen3.5-9b",
+            "local_llm_timeout_s": 60,
+            "local_llm_check": True,
+            "deep_enable_vector_index": True,
+            "deep_vector_store_provider": "numpy",
+            "deep_vector_distance": "cosine",
+            "qdrant_url": "http://localhost:6333",
+            "qdrant_collection": "stmemory_deep"
         },
         "budget_config": {
             "system_prompt_ratio": 0.1
