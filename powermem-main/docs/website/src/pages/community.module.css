@@ -1,0 +1,321 @@
+.communityPage {
+  min-height: 100vh;
+  background: #000000;
+  padding: 2rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.communityPage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.1), transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(147, 51, 234, 0.1), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header {
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  color: #60a5fa;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+  transition: color 0.2s ease;
+}
+
+.backLink:hover {
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientText 3s ease-in-out infinite;
+  text-shadow: 0 0 30px rgba(96, 165, 250, 0.5);
+}
+
+@keyframes gradientText {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  color: #d1d5db;
+  max-width: 700px;
+}
+
+.navIcons {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.githubButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #9333ea);
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.githubButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px rgba(37, 99, 235, 0.4);
+  text-decoration: none;
+  color: white;
+}
+
+.githubIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  backdrop-filter: blur(4px);
+}
+
+.communityGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.communityCard {
+  background: linear-gradient(135deg, #1f2937, #111827);
+  border-radius: 1rem;
+  padding: 2rem;
+  text-decoration: none;
+  color: white;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.communityCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.communityCard:hover::before {
+  left: 100%;
+}
+
+.communityCard:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(59, 130, 246, 0.4);
+  text-decoration: none;
+  color: white;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.card-gray {
+  background: linear-gradient(135deg, #1f2937, #111827);
+}
+
+.card-indigo {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.card-sky {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+}
+
+.card-black {
+  background: linear-gradient(135deg, #000000, #1a1a1a);
+}
+
+.card-black .cardIcon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.card-black:hover .cardIcon {
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.5));
+}
+
+.cardIcon {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+  transition: all 0.3s ease;
+}
+
+.communityCard:hover .cardIcon {
+  transform: scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.5));
+}
+
+.cardTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.cardDesc {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  flex-grow: 1;
+}
+
+.cardAction {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.section {
+  background: rgba(17, 17, 17, 0.9);
+  border-radius: 1rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 1;
+}
+
+.sectionContent {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.heartIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.sectionText {
+  flex: 1;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.sectionDesc {
+  color: #d1d5db;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.list {
+  list-style: disc;
+  list-style-position: inside;
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
+}
+
+.list li {
+  margin-bottom: 0.5rem;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #2563eb, #9333ea);
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ctaButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px rgba(37, 99, 235, 0.4);
+  text-decoration: none;
+  color: white;
+}
+
+.buttonIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1.125rem;
+  }
+
+  .communityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionContent {
+    flex-direction: column;
+  }
+
+  .heartIcon {
+    margin-top: 0;
+  }
+}
+

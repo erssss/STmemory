@@ -1,0 +1,22 @@
+{
+  "memory_config": {
+    "deep_persist_path": "deep_memory.db",
+    "deep_enable_vector_index": true,
+    "deep_vector_store_provider": "qdrant",
+    "deep_vector_distance": "cosine",
+    "deep_vector_rerank_prefetch": 80,
+    "deep_store_embeddings_in_sqlite": true,
+    "qdrant_url": "http://localhost:6333",
+    "qdrant_collection": "stmemory_deep",
+    "qdrant_timeout_s": 5,
+    "deep_vector_candidates": 50,
+    "enable_compression": true,
+    "compressed_max_chars": 180,
+    "compression_target_ratio": 0.5,
+    "deep_optimizer_enable": false,
+    "deep_optimizer_similarity_threshold": 0.88,
+    "deep_optimizer_min_cluster_size": 3,
+    "deep_optimizer_max_clusters": 5,
+    "deep_optimizer_delete_sources": true
+  }
+}
