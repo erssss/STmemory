@@ -24,37 +24,6 @@ except Exception:
 load_dotenv()
 
 
-def _normalize_llm_provider(value: str) -> str:
-    v = str(value or "").strip().lower()
-    if v in {"local", "ollama"}:
-        return "ollama"
-    if v in {"openai", "openai_compat", "openai-compatible", "openai_compatible"}:
-        return "openai_compat"
-    if v in {"remote", "minimax", "anthropic"}:
-        return "anthropic"
-    return ""
-
-
-def _normalize_openai_base_url(base_url: str) -> str:
-    s = str(base_url or "").strip().rstrip("/")
-    if not s:
-        return s
-    if "/v1" in s:
-        return s
-    if s.startswith("http://127.0.0.1:11434") or s.startswith("http://localhost:11434"):
-        return f"{s}/v1"
-    return s
-
-
-def _normalize_ollama_base_url(base_url: str) -> str:
-    s = str(base_url or "").strip().rstrip("/")
-    if not s:
-        return s
-    if s.endswith("/v1"):
-        s = s[:-3].rstrip("/")
-    return s
-
-
 def _extract_text_from_anthropic_message(message: Any) -> str:
     content = getattr(message, "content", None)
     if not content:
@@ -107,80 +76,22 @@ def _append_jsonl(path: Optional[str], row: Dict[str, Any], lock: threading.Lock
 
 
 class MemorySearch:
-    def __init__(
-        self,
-        output_path: str,
-        top_k: int = 10,
-        filter_memories: bool = False,
-        is_graph: bool = False,
-        api_base_url: str = "",
-        model: str = "MiniMax-M2.7",
-        minimax_api_key: str = "",
-        llm_provider: str = "",
-        openai_base_url: str = "",
-        openai_api_key: str = "",
-        use_mock_llm: bool = False,
-        metrics_path: Optional[str] = None,
-        llm_log_path: Optional[str] = None,
-        llm_request_timeout_s: float = 60.0,
-        minimax_max_tokens: int = 512,
-        minimax_temperature: float = 0.0,
-        minimax_system_prompt: str = "You are a helpful assistant.",
-        max_qa: int = 0,
-        search_workers: int = 1,
-        subset_indices: str = "",
-        max_conversations: int = 0,
-    ):
-        api_base_url = str(api_base_url or "").strip()
-        if not api_base_url:
-            raise ValueError("api_base_url is required")
-        self.api_base_url = api_base_url
-        self.model = str(model or "").strip() or "MiniMax-M2.7"
-        self.minimax_api_key = (
-            str(minimax_api_key or "").strip()
-            or os.getenv("MINIMAX_API_KEY")
-            or os.getenv("ANTHROPIC_API_KEY")
-            or ""
-        )
-
-        provider_env = _normalize_llm_provider(os.getenv("LOCOMO_LLM_PROVIDER") or "")
-        provider_arg = _normalize_llm_provider(llm_provider)
-        provider = provider_arg or provider_env
-        if not provider:
-            raw_base = str(openai_base_url or "").strip() or str(os.getenv("OPENAI_BASE_URL") or "").strip()
-            if "127.0.0.1:11434" in raw_base or "localhost:11434" in raw_base:
-                provider = "ollama"
-            elif raw_base:
-                provider = "openai_compat"
-            else:
-                provider = "ollama"
-        self.llm_provider = provider
-
-        raw_base = str(openai_base_url or "").strip() or str(os.getenv("OPENAI_BASE_URL") or "").strip()
-        if not raw_base and self.llm_provider == "ollama":
-            raw_base = "http://127.0.0.1:11434"
-        if not raw_base:
-            raw_base = "http://127.0.0.1:11434/v1"
-        self.openai_base_url = _normalize_openai_base_url(raw_base)
-        self.ollama_base_url = _normalize_ollama_base_url(raw_base)
-        self.openai_api_key = str(openai_api_key or "").strip() or str(os.getenv("OPENAI_API_KEY") or "").strip()
-
-        self.use_mock_llm = bool(use_mock_llm)
-        self.llm_request_timeout_s = float(llm_request_timeout_s)
-        self.minimax_max_tokens = int(minimax_max_tokens)
-        self.minimax_temperature = float(minimax_temperature)
-        self.minimax_system_prompt = str(minimax_system_prompt or "").strip() or "You are a helpful assistant."
-        self.max_qa = int(max_qa)
-        self.search_workers = int(search_workers)
-        self.max_conversations = int(max_conversations)
-        subset_indices_raw = str(subset_indices or "").strip()
-        if subset_indices_raw:
-            try:
-                self.subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
-            except Exception:
-                self.subset_indices = None
+    def __init__(self, output_path, top_k=10, filter_memories=False, is_graph=False):
+        api_base_url = os.getenv("API_BASE_URL")
+        if api_base_url:
+            self.api_base_url = api_base_url
         else:
-            self.subset_indices = None
+            raise ValueError("api_base_url is not set")
+        model = os.getenv("MODEL")
+        if model:
+            self.model = model
+        else:
+            raise ValueError("model is not set")
+        minimax_api_key = os.getenv("MINIMAX_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        if minimax_api_key:
+            self.minimax_api_key = minimax_api_key
+        else:
+            self.minimax_api_key = ""
         self.top_k = top_k
         self.results = defaultdict(list)
         self.output_path = output_path
@@ -191,9 +102,9 @@ class MemorySearch:
         self.request_times = []
         self._lock = threading.Lock()
         self._metrics_lock = threading.Lock()
-        self._metrics_path = metrics_path
+        self._metrics_path = os.getenv("MINIMAX_METRICS_PATH")
         self._llm_log_lock = threading.Lock()
-        self._llm_log_path = llm_log_path
+        self._llm_log_path = (os.getenv("LOCOMO_LLM_LOG_PATH") or "").strip() or None
 
         if self.is_graph:
             self.ANSWER_PROMPT = ANSWER_PROMPT_GRAPH
@@ -221,7 +132,7 @@ class MemorySearch:
                 response_body = b""
                 status_code = 0
                 try:
-                    with urllib.request.urlopen(request, timeout=self.llm_request_timeout_s) as response:
+                    with urllib.request.urlopen(request, timeout=60) as response:
                         status_code = int(getattr(response, "status", 0) or 0)
                         response_body = response.read() or b""
                 except urllib.error.HTTPError as e:
@@ -273,7 +184,7 @@ class MemorySearch:
         if not self.minimax_api_key:
             raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY) is not set")
 
-        timeout_s = float(self.llm_request_timeout_s)
+        timeout_s = float(os.getenv("LOCOMO_LLM_REQUEST_TIMEOUT_S") or os.getenv("MINIMAX_REQUEST_TIMEOUT_S") or "60")
         try:
             client = anthropic.Anthropic(api_key=self.minimax_api_key, timeout=timeout_s)
         except TypeError:
@@ -283,9 +194,9 @@ class MemorySearch:
             try:
                 message = client.messages.create(
                     model=self.model,
-                    max_tokens=int(self.minimax_max_tokens),
-                    temperature=float(self.minimax_temperature),
-                    system=str(self.minimax_system_prompt),
+                    max_tokens=int(os.getenv("MINIMAX_MAX_TOKENS") or "512"),
+                    temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                    system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a helpful assistant.",
                     messages=[
                         {
                             "role": "user",
@@ -297,9 +208,9 @@ class MemorySearch:
             except TypeError:
                 message = client.messages.create(
                     model=self.model,
-                    max_tokens=int(self.minimax_max_tokens),
-                    temperature=float(self.minimax_temperature),
-                    system=str(self.minimax_system_prompt),
+                    max_tokens=int(os.getenv("MINIMAX_MAX_TOKENS") or "512"),
+                    temperature=float(os.getenv("MINIMAX_TEMPERATURE") or "0.0"),
+                    system=os.getenv("MINIMAX_SYSTEM_PROMPT") or "You are a helpful assistant.",
                     messages=[
                         {
                             "role": "user",
@@ -329,95 +240,6 @@ class MemorySearch:
         )
         return response_text, (t2 - t1)
 
-    def _call_openai_compat(self, prompt: str, meta: Optional[Dict[str, Any]] = None) -> Tuple[str, float]:
-        try:
-            from openai import OpenAI
-        except Exception as e:
-            raise RuntimeError("openai (shim) package is required for OpenAI-compatible calls") from e
-
-        client = OpenAI(base_url=self.openai_base_url, api_key=(self.openai_api_key or ""))
-        messages = [
-            {"role": "system", "content": str(self.minimax_system_prompt)},
-            {"role": "user", "content": prompt},
-        ]
-        t1 = time.time()
-        resp = client.chat.completions.create(
-            model=str(self.model or ""),
-            messages=messages,
-            temperature=float(self.minimax_temperature),
-            timeout=float(self.llm_request_timeout_s),
-        )
-        t2 = time.time()
-        response_text = str(resp.choices[0].message.content or "").strip()
-        _append_jsonl(
-            self._llm_log_path,
-            {
-                "type": "answer",
-                "mock": False,
-                "model": str(self.model or ""),
-                "latency_s": (t2 - t1),
-                "prompt": prompt,
-                "response": response_text,
-                "meta": meta or {},
-            },
-            self._llm_log_lock,
-        )
-        return response_text, (t2 - t1)
-
-    def _call_ollama(self, prompt: str, meta: Optional[Dict[str, Any]] = None) -> Tuple[str, float]:
-        base = str(getattr(self, "ollama_base_url", "") or "").strip().rstrip("/")
-        if not base:
-            base = "http://127.0.0.1:11434"
-        url = f"{base}/api/chat"
-        payload: Dict[str, Any] = {
-            "model": str(self.model or ""),
-            "stream": False,
-            "messages": [
-                {"role": "system", "content": str(self.minimax_system_prompt)},
-                {"role": "user", "content": str(prompt or "")},
-            ],
-        }
-        temp = float(self.minimax_temperature)
-        payload["options"] = {"num_ctx": 32768}
-        if temp != 0.0:
-            payload["options"]["temperature"] = temp
-        t1 = time.time()
-        req = urllib.request.Request(
-            url=url,
-            method="POST",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=float(self.llm_request_timeout_s)) as resp:
-                raw = (resp.read() or b"").decode("utf-8", errors="replace")
-        except urllib.error.HTTPError as e:
-            body = (e.read() if hasattr(e, "read") else b"") or b""
-            text = body.decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"Ollama /api/chat request failed (status={getattr(e, 'code', None)}).\n"
-                f"url={url}\n"
-                f"hint=Ensure you're pointing to the real ollama server (ollama serve) and that /api/chat exists.\n"
-                f"body={text[:500]}"
-            ) from e
-        t2 = time.time()
-        data = json.loads(raw) if raw.strip() else {}
-        response_text = str((((data.get("message") or {}) or {}).get("content") or "")).strip()
-        _append_jsonl(
-            self._llm_log_path,
-            {
-                "type": "answer",
-                "mock": False,
-                "model": str(self.model or ""),
-                "latency_s": (t2 - t1),
-                "prompt": prompt,
-                "response": response_text,
-                "meta": meta or {},
-            },
-            self._llm_log_lock,
-        )
-        return response_text, (t2 - t1)
-
     def answer_question(self, speaker_1_user_id, speaker_2_user_id, question, answer, category):
         speaker_1_memories, speaker_1_graph_memories, speaker_1_memory_time = self.search_memory(speaker_1_user_id, question)
         speaker_2_memories, speaker_2_graph_memories, speaker_2_memory_time = self.search_memory(speaker_2_user_id, question)
@@ -436,7 +258,7 @@ class MemorySearch:
             question=question,
         )
 
-        if self.use_mock_llm:
+        if os.getenv("LOCOMO_USE_MOCK_LLM") == "1":
             response_text = str(answer or "")
             response_time = 0.0
             _append_metrics(
@@ -469,12 +291,7 @@ class MemorySearch:
             )
 
         try:
-            if self.llm_provider == "ollama":
-                response_text, response_time = self._call_ollama(answer_prompt, meta={"question": question, "category": category})
-            elif self.llm_provider == "openai_compat":
-                response_text, response_time = self._call_openai_compat(answer_prompt, meta={"question": question, "category": category})
-            else:
-                response_text, response_time = self._call_minimax(answer_prompt, meta={"question": question, "category": category})
+            response_text, response_time = self._call_minimax(answer_prompt, meta={"question": question, "category": category})
             _append_metrics(
                 self._metrics_path,
                 {"type": "answer", "latency_s": response_time, "success": bool(response_text)},
@@ -565,8 +382,9 @@ class MemorySearch:
         speaker_a_user_id = f"{speaker_a}_{idx}"
         speaker_b_user_id = f"{speaker_b}_{idx}"
 
-        if int(self.max_qa) > 0:
-            qa = (qa or [])[: int(self.max_qa)]
+        max_qa = int(os.getenv("LOCOMO_MAX_QA") or "0")
+        if max_qa > 0:
+            qa = (qa or [])[:max_qa]
 
         out = []
         for question_item in qa:
@@ -577,8 +395,14 @@ class MemorySearch:
         with open(file_path, "r") as f:
             data = json.load(f)
 
-        max_workers = int(self.search_workers)
-        subset_indices = self.subset_indices
+        max_workers = int(os.getenv("LOCOMO_SEARCH_WORKERS") or "1")
+        subset_indices_raw = (os.getenv("LOCOMO_SUBSET_INDICES") or "").strip()
+        subset_indices: Optional[set] = None
+        if subset_indices_raw:
+            try:
+                subset_indices = {int(x) for x in subset_indices_raw.split(",") if str(x).strip()}
+            except Exception:
+                subset_indices = None
 
         items: List[Tuple[int, Any]] = []
         for orig_idx, item in enumerate(data):
@@ -586,8 +410,9 @@ class MemorySearch:
                 continue
             items.append((orig_idx, item))
 
-        if subset_indices is None and int(self.max_conversations) > 0:
-            items = items[: int(self.max_conversations)]
+        max_conversations = int(os.getenv("LOCOMO_MAX_CONVERSATIONS") or "0")
+        if subset_indices is None and max_conversations > 0:
+            items = items[:max_conversations]
 
         if max_workers <= 1:
             for orig_idx, item in tqdm(items, total=len(items), desc="Processing conversations"):

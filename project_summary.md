@@ -50,11 +50,6 @@ G:owermem-mainTmemory\
     └── 📄 test_plugin.py
 ```
 
-## 🧹 仓库清理与忽略规则
-
-- 已在根目录新增 .gitignore，用于忽略 Python 缓存、测试缓存、构建产物与基准输出目录。
-- 基准运行产生的输出位于 benchmark/results/，建议作为本地结果保留或按需清理，不纳入版本库。
-
 ## 🧪 测试覆盖
 
 ### 单元测试

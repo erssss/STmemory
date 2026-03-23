@@ -63,14 +63,9 @@ class PerformanceEvaluator:
         }
         
         if use_llm:
-            cfg = MemoryConfig()
-            if llm_base_url:
-                cfg.llm_base_url = str(llm_base_url)
-            if llm_model:
-                cfg.llm_model = str(llm_model)
             api_key = llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-            base_url = str(llm_base_url or cfg.llm_base_url or "").strip()
-            model = str(llm_model or cfg.llm_model or "").strip()
+            base_url = llm_base_url or os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            model = llm_model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
             self.openclaw_api_func = make_openai_compatible_api_func(
                 api_key=api_key,
                 base_url=base_url,

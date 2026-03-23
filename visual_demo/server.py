@@ -237,10 +237,6 @@ class DemoEngine:
             beta_time=0.3,
             gamma_layer=0.2,
         )
-        if self.llm_base_url:
-            cfg.llm_base_url = str(self.llm_base_url)
-        if self.llm_model:
-            cfg.llm_model = str(self.llm_model)
         return SpatioTemporalMemoryPlugin(model_name="visual-demo", memory_config=cfg, enable_logging=False)
 
     def reset(self) -> None:
@@ -251,8 +247,8 @@ class DemoEngine:
 
         if self.use_llm:
             api_key = self.llm_api_key or os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-            base_url = str(self.llm_base_url or self.plugin.config.llm_base_url or "").strip()
-            model = str(self.llm_model or self.plugin.config.llm_model or "").strip()
+            base_url = self.llm_base_url or os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            model = self.llm_model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
             self.openclaw_api_func = make_openai_compatible_api_func(api_key=api_key, base_url=base_url, model=model)
         else:
             self.openclaw_api_func = None
@@ -439,23 +435,6 @@ def create_app(demo: DemoEngine, locomo: LocomoRunner) -> web.Application:
             return web.json_response({"error": "query required"}, status=400)
         return web.json_response(_jsonable(await demo.chat(query)))
 
-    async def api_vector_search(request: web.Request) -> web.Response:
-        body = await request.json()
-        query = str((body or {}).get("query") or "").strip()
-        if not query:
-            return web.json_response({"error": "query required"}, status=400)
-        top_k = (body or {}).get("top_k", 10)
-        distance = str((body or {}).get("distance") or "cosine")
-        try:
-            top_k_i = int(top_k)
-        except Exception:
-            top_k_i = 10
-        res = await demo.plugin.vector_search(query, top_k=top_k_i, distance=distance)
-        return web.json_response(_jsonable(res))
-
-    async def api_vector_store_stats(_: web.Request) -> web.Response:
-        return web.json_response(_jsonable(demo.plugin.get_vector_store_stats()))
-
     async def api_locomo_runs(_: web.Request) -> web.Response:
         return web.json_response(_jsonable({"runs": _safe_list_locomo_runs()}))
 
@@ -503,8 +482,6 @@ def create_app(demo: DemoEngine, locomo: LocomoRunner) -> web.Application:
     app.router.add_post("/api/demo/reset", api_demo_reset)
     app.router.add_post("/api/demo/step", api_demo_step)
     app.router.add_post("/api/chat", api_chat)
-    app.router.add_post("/api/vector_search", api_vector_search)
-    app.router.add_get("/api/vector_store/stats", api_vector_store_stats)
     app.router.add_get("/api/locomo/runs", api_locomo_runs)
     app.router.add_get("/api/locomo/run", api_locomo_run)
     app.router.add_get("/ws/locomo", ws_locomo)
@@ -516,8 +493,8 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--use-llm", action="store_true", default=False)
-    parser.add_argument("--llm-base-url", default="")
-    parser.add_argument("--llm-model", default="")
+    parser.add_argument("--llm-base-url", default=os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL") or "")
+    parser.add_argument("--llm-model", default=os.getenv("LLM_MODEL") or os.getenv("MODEL") or "")
     parser.add_argument("--llm-api-key", default=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or "")
     args = parser.parse_args()
 

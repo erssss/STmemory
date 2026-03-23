@@ -23,6 +23,7 @@ class NumpyVectorIndex:
         self._ids: List[str] = []
         self._id_to_pos: Dict[str, int] = {}
         self._matrix = np.zeros((0, 1), dtype=np.float32)
+        self._dirty = False
 
     @property
     def dim(self) -> Optional[int]:
@@ -43,11 +44,13 @@ class NumpyVectorIndex:
         if item_id in self._id_to_pos:
             pos = self._id_to_pos[item_id]
             self._matrix[pos] = vec[0]
+            self._dirty = True
             return
 
         self._id_to_pos[item_id] = len(self._ids)
         self._ids.append(item_id)
         self._matrix = np.vstack([self._matrix, vec])
+        self._dirty = True
 
     def delete(self, item_id: str) -> None:
         pos = self._id_to_pos.pop(item_id, None)
@@ -60,6 +63,7 @@ class NumpyVectorIndex:
             self._matrix[pos] = self._matrix[-1]
         self._ids.pop()
         self._matrix = self._matrix[:-1]
+        self._dirty = True
 
     def search(self, query_vector: np.ndarray, top_k: int = 10) -> List[VectorSearchResult]:
         if not self._ids:
@@ -75,3 +79,4 @@ class NumpyVectorIndex:
         idx = np.argpartition(-sims, k - 1)[:k]
         idx_sorted = idx[np.argsort(-sims[idx])]
         return [VectorSearchResult(id=self._ids[i], score=float(sims[i])) for i in idx_sorted]
+

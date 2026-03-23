@@ -3,13 +3,7 @@ import asyncio
 from datetime import datetime
 import uuid
 
-from plugin import (
-    SpatioTemporalMemoryPlugin,
-    get_plugin,
-    cleanup_plugin,
-    openclaw_with_memory,
-    make_configured_llm_api_func,
-)
+from plugin import SpatioTemporalMemoryPlugin, get_plugin, cleanup_plugin, openclaw_with_memory
 from memory_layers import MemoryConfig
 
 
@@ -38,7 +32,6 @@ class TestSpatioTemporalMemoryPlugin:
         self.config = MemoryConfig(
             max_shallow_entries=10,
             max_working_entries=5,
-            deep_persist_path=":memory:",
             lambda_decay=0.1,
             alpha_similarity=0.6,
             beta_time=0.3,
@@ -373,81 +366,6 @@ class TestMemoryIntegration:
         assert result["status"] == "success"
         # 应该找到了相关记忆（可能来自多个层级）
         assert result["relevant_memories_count"] >= 0
-
-
-class TestLocalLLM:
-    async def test_local_llm_success(self):
-        from aiohttp import web
-
-        seen_headers = {}
-
-        async def models_handler(request):
-            return web.json_response({"data": [{"id": "qwen3.5-9b"}]})
-
-        async def chat_handler(request):
-            seen_headers.update(dict(request.headers))
-            payload = await request.json()
-            assert payload.get("model") == "qwen3.5-9b"
-            return web.json_response({"choices": [{"message": {"content": "ok"}}]})
-
-        app = web.Application()
-        app.router.add_get("/v1/models", models_handler)
-        app.router.add_post("/v1/chat/completions", chat_handler)
-
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        try:
-            port = site._server.sockets[0].getsockname()[1]
-            base_url = f"http://127.0.0.1:{port}/v1"
-
-            cfg = MemoryConfig(
-                llm_provider="local",
-                local_llm_base_url=base_url,
-                local_llm_model="qwen3.5-9b",
-                local_llm_check=True,
-            )
-            api = make_configured_llm_api_func(cfg)
-            out = await api("hi")
-            assert out == "ok"
-            assert "Authorization" not in seen_headers
-        finally:
-            await runner.cleanup()
-
-    async def test_local_llm_missing_model(self):
-        from aiohttp import web
-
-        async def models_handler(request):
-            return web.json_response({"data": [{"id": "other"}]})
-
-        async def chat_handler(request):
-            return web.json_response({"choices": [{"message": {"content": "should-not-call"}}]})
-
-        app = web.Application()
-        app.router.add_get("/v1/models", models_handler)
-        app.router.add_post("/v1/chat/completions", chat_handler)
-
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        try:
-            port = site._server.sockets[0].getsockname()[1]
-            base_url = f"http://127.0.0.1:{port}/v1"
-
-            cfg = MemoryConfig(
-                llm_provider="local",
-                local_llm_base_url=base_url,
-                local_llm_model="qwen3.5-9b",
-                local_llm_check=True,
-            )
-            api = make_configured_llm_api_func(cfg)
-            with pytest.raises(RuntimeError) as e:
-                await api("hi")
-            assert "未发现模型" in str(e.value) or "未发现" in str(e.value)
-        finally:
-            await runner.cleanup()
 
 
 if __name__ == "__main__":

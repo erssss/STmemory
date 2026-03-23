@@ -500,14 +500,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-workers: 2 }));
-  });
-  $("#btnStopLocomo").addEventListener("click", async () => {
-    if (!locomoWS || locomoWS.readyState !== 1) return;
-    locomoWS.send(JSON.stringify({ action: "stop" }));
-  });
-
-  pill("#serverPill", "Server: online");
-}
-
-bootstrap();

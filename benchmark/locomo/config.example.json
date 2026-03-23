@@ -9,7 +9,7 @@
   "use_mock_llm": true,
   "model": "MiniMax-M2.7",
   "minimax_api_key": "",
-  "probe_size": 1,
+  "probe_size": 20,
   "probe_seed": 42,
   "skip_probe": false,
   "run_full": false,

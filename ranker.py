@@ -2,13 +2,13 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime
 import numpy as np
+import os
 from sentence_transformers import SentenceTransformer
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 import math
 import re
 import hashlib
-import os
 
 from memory_layers import MemoryEntry, MemoryLayer, MemoryConfig
 from temporal_model import parse_time_range_from_query, temporal_match_score
@@ -57,10 +57,7 @@ class SpatioTemporalRanker:
     def _load_model(self):
         """加载句子嵌入模型"""
         try:
-            if os.getenv("STMEMORY_ONLINE_MODE") not in {"1", "true", "TRUE"}:
-                os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-                os.environ.setdefault("HF_HUB_OFFLINE", "1")
-            device = str(self.config.embedding_device or "").strip()
+            device = os.getenv("STMEM_DEVICE")
             if not device:
                 device = "cuda" if torch.cuda.is_available() else "cpu"
             self.model = SentenceTransformer(self.model_name, device=device)
@@ -69,6 +66,8 @@ class SpatioTemporalRanker:
             self.model = _HashEmbeddingModel()
 
     def _encode_texts(self, texts: List[str]) -> np.ndarray:
+        if self.model is None:
+            return _HashEmbeddingModel().encode(texts)
         try:
             vecs = self.model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
             return np.asarray(vecs, dtype=np.float32)
@@ -110,6 +109,10 @@ class SpatioTemporalRanker:
     
     def compute_semantic_similarity(self, query: str, entry: MemoryEntry) -> float:
         """计算语义相似度"""
+        if self.model is None:
+            # 回退到简单的关键词匹配
+            return self._keyword_similarity(query, f"{entry.query} {entry.response}")
+        
         try:
             # 生成嵌入向量
             query_embedding = self.model.encode([query])
@@ -219,43 +222,49 @@ class SpatioTemporalRanker:
 
         if not all_entries:
             return []
+        
+        if self.model is None:
+            layer_scores: Dict[str, ScoredMemory] = {}
+            for layer_name, entry in all_entries:
+                scored_memory = self.compute_spatiotemporal_score(query, entry, current_time, layer_name)
+                layer_scores[entry.id] = scored_memory
+        else:
+            query_vec = self._encode_texts([query]).reshape(1, -1)
 
-        query_vec = self._encode_texts([query]).reshape(1, -1)
+            missing_entries: List[MemoryEntry] = []
+            missing_texts: List[str] = []
+            for _layer_name, entry in all_entries:
+                if entry.embedding is None:
+                    missing_entries.append(entry)
+                    missing_texts.append(f"{entry.query} {entry.response}")
 
-        missing_entries: List[MemoryEntry] = []
-        missing_texts: List[str] = []
-        for _layer_name, entry in all_entries:
-            if entry.embedding is None:
-                missing_entries.append(entry)
-                missing_texts.append(f"{entry.query} {entry.response}")
+            if missing_texts:
+                enc = self._encode_texts(missing_texts)
+                for entry, vec in zip(missing_entries, enc):
+                    entry.embedding = vec
 
-        if missing_texts:
-            enc = self._encode_texts(missing_texts)
-            for entry, vec in zip(missing_entries, enc):
-                entry.embedding = vec
+            matrix = np.asarray([entry.embedding for _layer_name, entry in all_entries], dtype=np.float32)
+            sims = cosine_similarity(query_vec, matrix)[0]
 
-        matrix = np.asarray([entry.embedding for _layer_name, entry in all_entries], dtype=np.float32)
-        sims = cosine_similarity(query_vec, matrix)[0]
-
-        layer_scores = {}
-        for (layer_name, entry), sim in zip(all_entries, sims):
-            similarity_score = float(sim)
-            time_score = self.compute_time_decay(entry, current_time)
-            layer_score = self.get_layer_transition_probability(layer_name, entry.layer)
-            total_score = (
-                self.config.alpha_similarity * similarity_score +
-                self.config.beta_time * time_score +
-                self.config.gamma_layer * layer_score
-            )
-            layer_scores[entry.id] = ScoredMemory(
-                entry=entry,
-                score=total_score,
-                similarity_score=similarity_score,
-                time_score=time_score,
-                layer_score=layer_score,
-                layer_transition_prob=layer_score,
-                temporal_match=0.0,
-            )
+            layer_scores = {}
+            for (layer_name, entry), sim in zip(all_entries, sims):
+                similarity_score = float(sim)
+                time_score = self.compute_time_decay(entry, current_time)
+                layer_score = self.get_layer_transition_probability(layer_name, entry.layer)
+                total_score = (
+                    self.config.alpha_similarity * similarity_score +
+                    self.config.beta_time * time_score +
+                    self.config.gamma_layer * layer_score
+                )
+                layer_scores[entry.id] = ScoredMemory(
+                    entry=entry,
+                    score=total_score,
+                    similarity_score=similarity_score,
+                    time_score=time_score,
+                    layer_score=layer_score,
+                    layer_transition_prob=layer_score,
+                    temporal_match=0.0,
+                )
         
         # 按评分排序
         sorted_entries = sorted(
