@@ -1,0 +1,11 @@
+
+--- Experiment: search (Model: qwen3.5:9b) ---
+  Total server execution time: 0.0441 seconds
+  Total requests: 2
+  Average request time: 0.0220 seconds
+  P95 request time: 0.0317 seconds
+  Answer prompt context_k: 10
+  Ollama chat timeout: 300 seconds
+  Ollama num_predict: 64
+  Ollama chat avg time: 118.4032 seconds
+  Ollama chat P95 time: 118.4032 seconds

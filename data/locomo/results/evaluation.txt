@@ -1,0 +1,23 @@
+Ollama Experiment Report
+Model: qwen3.5:9b
+--------------------------
+按分类平均得分:
+          bleu_score  f1_score  llm_score  count
+category                                        
+1             0.2537    0.3554     0.6738    282
+2             0.2952    0.3655     0.4424    321
+3             0.1011    0.1272     0.3542     96
+4             0.3805    0.4952     0.8205    841
+5             0.1181    0.0013     0.4664    446
+
+整体平均得分:
+bleu_score    0.3218
+f1_score      0.3257
+llm_score     0.6365
+dtype: float64
+
+评估过程中的Token使用情况:
+使用的提示词tokens: 68,347,232
+使用的补全tokens: 17,681
+使用的总tokens: 68,364,913
+使用的缓存tokens: 0

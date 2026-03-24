@@ -1,0 +1,129 @@
+[
+  {
+    "qa": [
+      {
+        "question": "小周最终确认的见面时间是什么？",
+        "answer": "2023年9月13日 下午3:00",
+        "evidence": ["D1:6", "D1:9"],
+        "category": 2
+      },
+      {
+        "question": "见面地点最终是哪一个出口？",
+        "answer": "西门地铁站 A口",
+        "evidence": ["D1:10"],
+        "category": 1
+      },
+      {
+        "question": "会后需要小林带什么材料？",
+        "answer": "纸质版合同（打印两份）",
+        "evidence": ["D2:6"],
+        "category": 1
+      },
+      {
+        "question": "小周一开始口误说的见面日期是哪天？",
+        "evidence": ["D1:4"],
+        "category": 5,
+        "adversarial_answer": "2023年9月12日"
+      },
+      {
+        "question": "小周第一次发错的订单号是什么？",
+        "evidence": ["D2:2"],
+        "category": 5,
+        "adversarial_answer": "A-10826"
+      }
+    ],
+    "conversation": {
+      "speaker_a": "小林",
+      "speaker_b": "小周",
+      "session_1_date_time": "2:18 pm on 11 Sep, 2023",
+      "session_1": [
+        {
+          "speaker": "小林",
+          "dia_id": "D1:1",
+          "text": "小周，咱们这周约一下把合同过一遍？你周三有空吗？"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D1:2",
+          "text": "可以！明天下午3点，西门地铁站A口见。"
+        },
+        {
+          "speaker": "小林",
+          "dia_id": "D1:3",
+          "text": "等下，“明天”是9/12周二吧？你刚说周三？"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D1:4",
+          "text": "啊对对对，9月12日下午3点。（我脑子有点乱）"
+        },
+        {
+          "speaker": "小林",
+          "dia_id": "D1:5",
+          "text": "我周二不行，我以为是周三。要不还是按周三？"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D1:6",
+          "text": "抱歉我打错了！不是9/12，是9/13（周三）下午3点。"
+        },
+        {
+          "speaker": "小林",
+          "dia_id": "D1:7",
+          "text": "OK。地点还是A口吗？你刚刚一会儿周二一会儿周三我有点不放心。"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D1:8",
+          "text": "对，A口。刚才日期我确实写错了。出口我确认是A口，不是B口。"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D1:9",
+          "text": "我再重复一遍：9/13（周三）15:00，西门地铁站A口。"
+        },
+        {
+          "speaker": "小周",
+          "img_url": [],
+          "blip_caption": "a photo of a subway exit sign with letter A",
+          "query": "subway exit A sign",
+          "dia_id": "D1:10",
+          "text": "我刚拍了路标，A口这边有个很大的“出口A”牌子，咱们就在牌子下面碰头。"
+        }
+      ],
+      "session_2_date_time": "10:05 am on 12 Sep, 2023",
+      "session_2": [
+        {
+          "speaker": "小周",
+          "dia_id": "D2:1",
+          "text": "对了我昨晚订了会议室，你帮我报销一下哈。"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D2:2",
+          "text": "订单号我发你：A-10826。"
+        },
+        {
+          "speaker": "小林",
+          "dia_id": "D2:3",
+          "text": "我系统里查不到 A-10826，你确定没抄错？"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D2:4",
+          "text": "等下我翻一下短信……啊我又打错了，是 A-18026，不是 A-10826。"
+        },
+        {
+          "speaker": "小林",
+          "dia_id": "D2:5",
+          "text": "查到了。费用我先垫付，周三见面时把发票给我。"
+        },
+        {
+          "speaker": "小周",
+          "dia_id": "D2:6",
+          "text": "行！另外你记得带纸质版合同，我这边打印机坏了……要打印两份。（我刚刚差点说一份，后来想起法务要留档）"
+        }
+      ]
+    }
+  }
+]

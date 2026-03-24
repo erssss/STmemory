@@ -1,0 +1,948 @@
+[
+  {
+    "qa": [
+      {
+        "question": "Who said: \"I know how you feel, but it's important to remember that everyone is unique and has their own st…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S5:4"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Really? That's so sweet. I enjoy our time together too. Why do you like hanging out with me?\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S1:2"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Because you're not just pretty, but you're also really nice to me. I think you're the best girl…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:3"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I'm glad you enjoyed it. Honestly, I had a great time as well. You are charming and funny. It's…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S2:6"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"I feel like things are just getting worse and that people are becoming more selfish. It's really…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:11"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Yes, I remember that too. And I was glad that you asked me out. How was the date?\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S2:4"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Hey, I just wanted to let you know that I really enjoy spending time with you.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S1:1"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Why is that,?\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S4:2"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"I completely understand. But you have to remember that you're more than just your appearance. Yo…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S5:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Absolutely. I believe that everyone's perspective is valuable, even if it differs from my own. T…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S1:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Well, I feel the same way about you,. You're always so easy to talk to, and I love spending time…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S4:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Thanks, that means a lot to me. But you know, I'm really angry about the state of the world late…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:9"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I mean, I'm worried about the future. What kind of world are we leaving behind for our kids?\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S3:3"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Of course, anytime. Remember, you're amazing just the way you are. And if you ever need a confid…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S5:10"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Yes, that was a really interesting conversation. I always love talking about movies and hearing…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S1:6"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Yeah, I guess you're right. Maybe we can start volunteering or something. But for now, I just re…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:13"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Well, it's related to what I told you the last time. I was waiting at the bus stop a few days ag…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S2:3"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I get that. But remember when we first met at the bus stop and struck up a conversation? If we d…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S3:6"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"I just feel so uncomfortable in my own skin sometimes. I wish I could change how I look.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S5:1"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Well, I'm glad we share the same sentiments. I hope we can go out again soon.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S2:7"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      }
+    ],
+    "conversation": {
+      "session_1_date_time": "Start",
+      "session_1": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:1",
+          "text": "Hey, I just wanted to let you know that I really enjoy spending time with you."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:2",
+          "text": "Really? That's so sweet. I enjoy our time together too. Why do you like hanging out with me?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:3",
+          "text": "I feel really comfortable around you. You're easy to talk to and you always have something interesting to say."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:4",
+          "text": "Aww, thank you. I feel the same way about you. We always have great conversations."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:5",
+          "text": "Yeah, I remember last week when we were talking about our favorite movies. It was so fun to hear all about your favorite films."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:6",
+          "text": "Yes, that was a really interesting conversation. I always love talking about movies and hearing what other people enjoy."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:7",
+          "text": "Same here. I also appreciate that you're so open-minded. We can talk about anything without fear of judgment."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:8",
+          "text": "Absolutely. I believe that everyone's perspective is valuable, even if it differs from my own. That's why I enjoy our conversations so much."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:9",
+          "text": "I couldn't agree more. It's refreshing to have someone to talk to who brings such a positive energy to the conversation."
+        }
+      ],
+      "session_2_date_time": "A few weeks after",
+      "session_2": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:1",
+          "text": "Hey there, it's been a while since we talked. Remember the last time we spoke, I told you how I enjoy our conversations and how comfortable you make me feel?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:2",
+          "text": "Yes, I remember. So what's on your mind today?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:3",
+          "text": "Well, it's related to what I told you the last time. I was waiting at the bus stop a few days ago and you walked by. Can you believe it? We had a conversation, and I asked you out on a date."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:4",
+          "text": "Yes, I remember that too. And I was glad that you asked me out. How was the date?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:5",
+          "text": "It was great. I thought you would be an excellent company, and you didn't disappoint me. We had a fantastic time together and enjoyed various activities. You are charming and good-looking. Plus, our conversations were so interesting that I didn't want the night to end."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:6",
+          "text": "I'm glad you enjoyed it. Honestly, I had a great time as well. You are charming and funny. It's rare to find someone who can make me laugh so much."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:7",
+          "text": "Well, I'm glad we share the same sentiments. I hope we can go out again soon."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:8",
+          "text": "Definitely. Let's plan something soon. I'm looking forward to it."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:9",
+          "text": "Me too. I feel so lucky to have met you."
+        }
+      ],
+      "session_3_date_time": "A couple of years after",
+      "session_3": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:1",
+          "text": "I am just so angry about the state of the world, you know? It feels like things are only getting worse, and people are getting more selfish by the day."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:2",
+          "text": "I know how you feel. It can be really frustrating to see the world like this."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:3",
+          "text": "I mean, I'm worried about the future. What kind of world are we leaving behind for our kids?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:4",
+          "text": "I totally understand. But you know what? I believe that there's always something we can do to make a difference, even if it's just in our small corner of the world."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:5",
+          "text": "That's true. I just feel like it's all so overwhelming sometimes."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:6",
+          "text": "I get that. But remember when we first met at the bus stop and struck up a conversation? If we didn't take that first step and exchange numbers, we wouldn't be where we are today. Little actions can lead to big changes."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:7",
+          "text": "You're right. Maybe I just need to start small and focus on what I can do."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:8",
+          "text": "Exactly. And we can support each other along the way. Together, we can make a difference, no matter how small it may seem."
+        }
+      ],
+      "session_4_date_time": "A couple of years after",
+      "session_4": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:1",
+          "text": ", you know why I like spending time with you?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:2",
+          "text": "Why is that,?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:3",
+          "text": "Because you're not just pretty, but you're also really nice to me. I think you're the best girl in our class."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:4",
+          "text": "Oh, thank you. That's really sweet of you to say."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:5",
+          "text": "Yeah, and I feel like we always have a good time together. Remember when we met at the bus stop and went on our first date?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:6",
+          "text": "Of course, I remember that! That was such a fun day."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:7",
+          "text": "That's why I always want to hang out with you. You make me feel really comfortable, and I can talk to you about anything."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:8",
+          "text": "Well, I feel the same way about you,. You're always so easy to talk to, and I love spending time with you too."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:9",
+          "text": "Thanks, that means a lot to me. But you know, I'm really angry about the state of the world lately."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:10",
+          "text": "Why is that?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:11",
+          "text": "I feel like things are just getting worse and that people are becoming more selfish. It's really worrying, and I don't know what we can do about it."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:12",
+          "text": "I know it can feel really overwhelming, but maybe there are small things we can do to make a difference."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:13",
+          "text": "Yeah, I guess you're right. Maybe we can start volunteering or something. But for now, I just really appreciate having someone like you to talk to. You always make me feel better."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:14",
+          "text": "Aww, I'm always here for you,. We can figure out a way to make a difference together."
+        }
+      ],
+      "session_5_date_time": "A few hours after",
+      "session_5": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:1",
+          "text": "I just feel so uncomfortable in my own skin sometimes. I wish I could change how I look."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:2",
+          "text": "I'm sorry to hear that, but you shouldn't be ashamed of your body. You're great just the way you are."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:3",
+          "text": "It's hard not to compare myself to others though. I feel like everyone around me looks better than I do."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:4",
+          "text": "I know how you feel, but it's important to remember that everyone is unique and has their own strengths and weaknesses. You're more than just your appearance."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:5",
+          "text": "Thanks for saying that. It really means a lot. Do you ever feel this way?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:6",
+          "text": "Sure, sometimes I have insecurities too. But I try to focus on the things I do like about myself, instead of dwelling on the negatives. It's all about perspective."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:7",
+          "text": "That's a good point. I'll try to work on that. It's just hard sometimes."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:8",
+          "text": "I completely understand. But you have to remember that you're more than just your appearance. You have so much to offer the world, and anyone who judges you based on your looks isn't worth your time."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:9",
+          "text": "That's true. Thanks for being such a good friend and always being there for me."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:10",
+          "text": "Of course, anytime. Remember, you're amazing just the way you are. And if you ever need a confidence boost, just let me know."
+        }
+      ],
+      "speaker_a": "Classmates A",
+      "speaker_b": "Classmates B"
+    }
+  },
+  {
+    "qa": [
+      {
+        "question": "Who said: \"Sure, why do you need it?\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S1:2"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"That's so cool. And I also found out that you're related to a famous actor, is that true?\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S3:7"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Absolutely. I'm glad you have someone you trust to talk to. Remember, I'm also here if you ever…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S1:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Yeah, I have. Why do you ask?\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S2:5"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Thank you, I really appreciate it. Friends like you make everything easier.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S1:9"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I appreciate it. And you know, this actually reminds me of when we talked about my family tree.…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S4:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"She's my best friend. I need to talk to her about some things going on in my life.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S2:3"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I still can't believe I broke that one vase of mine though. But you were so sweet to replace it.\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S5:13"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"I'm glad to hear that. It's important to have people in their lives that can help them grow and…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S3:4"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"That's what friends are for, right? So let's start by sitting with some new people at lunch tomo…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S5:10"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"That's really cool. Did you find out anything interesting?\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S2:8"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \", I have to tell you something. I'm feeling super shy and alone at this school.\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S5:1"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"Yeah, I actually did some research on it a few years back. It was really interesting to learn ab…\"",
+        "answer": "Classmates B",
+        "evidence": [
+          "S3:6"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates A"
+      },
+      {
+        "question": "Who said: \"I totally understand. I moved here when I was younger and I felt the same way at first. But I pr…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S5:6"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I know I didn't have to. But I wanted to. I want to make things right between us because I value…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:5"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Of course, B. Your family is important to you, which makes them important to me too.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:13"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"I really need to talk to her about what's going on in my life. She's the only person I really tr…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S1:3"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Haha, that's adorable. I had so much fun playing with them last time.\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:11"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"No problem, B. Besides, I know how much that old vase meant to you, and I wanted to see you happ…\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S4:7"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      },
+      {
+        "question": "Who said: \"Woah, really? Who?\"",
+        "answer": "Classmates A",
+        "evidence": [
+          "S2:10"
+        ],
+        "category": 1,
+        "adversarial_answer": "Classmates B"
+      }
+    ],
+    "conversation": {
+      "session_1_date_time": "Start",
+      "session_1": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:1",
+          "text": "Hey, do you have Sarah's number by any chance?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:2",
+          "text": "Sure, why do you need it?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:3",
+          "text": "I really need to talk to her about what's going on in my life. She's the only person I really trust."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:4",
+          "text": "Of course, here's her number. I hope everything's okay."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:5",
+          "text": "Thanks so much. I just feel like I need someone to talk to."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:6",
+          "text": "I know the feeling. I remember when I was going through a tough time and you were there for me."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:7",
+          "text": "Yeah, that's what friends are for, right? To be there for each other."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S1:8",
+          "text": "Absolutely. I'm glad you have someone you trust to talk to. Remember, I'm also here if you ever need someone to talk to."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S1:9",
+          "text": "Thank you, I really appreciate it. Friends like you make everything easier."
+        }
+      ],
+      "session_2_date_time": "A few hours after",
+      "session_2": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:1",
+          "text": "Hey, do you have a phone number I can borrow? I want to call Sarah."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:2",
+          "text": "Sure thing. Who's Sarah?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:3",
+          "text": "She's my best friend. I need to talk to her about some things going on in my life."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:4",
+          "text": "Hey, have you ever traced your family tree?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:5",
+          "text": "Yeah, I have. Why do you ask?"
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:6",
+          "text": "I'm just curious. Where are your ancestors from?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:7",
+          "text": "They're from Ireland. My great-grandparents on my dad's side immigrated to the U.S. in the early 1900s."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:8",
+          "text": "That's really cool. Did you find out anything interesting?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:9",
+          "text": "Actually, yeah. I found out that I'm distantly related to a famous actor."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:10",
+          "text": "Woah, really? Who?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S2:11",
+          "text": "Liam Neeson. He's my third cousin twice removed or something like that."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S2:12",
+          "text": "That's amazing! You have to tell me more about your family history sometime."
+        }
+      ],
+      "session_3_date_time": "A few hours after",
+      "session_3": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:1",
+          "text": "I really enjoy spending time with your children, they're such great kids."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:2",
+          "text": "That's so nice to hear, they really like spending time with you too."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:3",
+          "text": "It's been such a great change for me. I used to be so unsure about kids, but I feel like spending time with them has been really good for me."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:4",
+          "text": "I'm glad to hear that. It's important to have people in their lives that can help them grow and develop."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:5",
+          "text": "Speaking of growth, I was curious about your family tree. Did you know your ancestors came from Ireland?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:6",
+          "text": "Yeah, I actually did some research on it a few years back. It was really interesting to learn about my family history."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:7",
+          "text": "That's so cool. And I also found out that you're related to a famous actor, is that true?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:8",
+          "text": "Yes, actually. He's my cousin on my mother's side. We don't see each other often, but it's always exciting when we do."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S3:9",
+          "text": "Wow, that's amazing. It's always so interesting to learn about people's backgrounds and family histories."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S3:10",
+          "text": "Definitely. It's a great way to connect with others and understand them better."
+        }
+      ],
+      "session_4_date_time": "A few days after",
+      "session_4": [
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:1",
+          "text": "I felt really bad when your vase broke, B. I know how much it meant to you."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:2",
+          "text": "Yeah, it was a shame. But accidents happen."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:3",
+          "text": "Still, I wanted to make it up to you. So, I went out and got you a new vase."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:4",
+          "text": "What? You didn't have to do that, A."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:5",
+          "text": "I know I didn't have to. But I wanted to. I want to make things right between us because I value our friendship."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:6",
+          "text": "That's really kind of you, A. Thank you so much."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:7",
+          "text": "No problem, B. Besides, I know how much that old vase meant to you, and I wanted to see you happy again."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:8",
+          "text": "I appreciate it. And you know, this actually reminds me of when we talked about my family tree. My great-grandmother used to have a collection of Irish vases, which was passed down from her grandmother."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:9",
+          "text": "Wow, that's so interesting. I didn't know that about your family. By the way, how are your kids doing?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:10",
+          "text": "Oh, they're doing great. In fact, my youngest keeps asking when you're going to come play with him again."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:11",
+          "text": "Haha, that's adorable. I had so much fun playing with them last time."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S4:12",
+          "text": "I'm glad you did. And you know, it means a lot to me that you enjoy spending time with my family. It's nice to have someone who cares about them as much as I do."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S4:13",
+          "text": "Of course, B. Your family is important to you, which makes them important to me too."
+        }
+      ],
+      "session_5_date_time": "A couple of years after",
+      "session_5": [
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:1",
+          "text": ", I have to tell you something. I'm feeling super shy and alone at this school."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:2",
+          "text": "Oh no, that's terrible! I'm so sorry to hear that. Is there anything I can do to help?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:3",
+          "text": "I don't know. I just feel like nobody really likes me here."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:4",
+          "text": "Well, I like you! And I'm sure if people got to know you, they would like you too. Maybe we could try to make friends together?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:5",
+          "text": "That would be really nice. I just feel so awkward and uncomfortable around new people."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:6",
+          "text": "I totally understand. I moved here when I was younger and I felt the same way at first. But I promise, it gets easier. And I'll be here to support you every step of the way."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:7",
+          "text": "Thank you,. That means a lot to me."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:8",
+          "text": "Of course! Hey, remember a couple of years ago when we met and became friends? We were in the same boat then, but we became inseparable."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:9",
+          "text": "Yeah, I remember that! You helped me so much back then too."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:10",
+          "text": "That's what friends are for, right? So let's start by sitting with some new people at lunch tomorrow. And maybe we can invite them to hang out with us afterschool too."
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:11",
+          "text": "That sounds like a great idea! And maybe we can even introduce them to my ancestors from Ireland. You know, the ones you looked up on your phone."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:12",
+          "text": "Haha, yeah! And we can also teach them some games to play with my kids. Remember how you used to not be sure about them, but now you love playing with them?"
+        },
+        {
+          "speaker": "Classmates B",
+          "dia_id": "S5:13",
+          "text": "I still can't believe I broke that one vase of mine though. But you were so sweet to replace it."
+        },
+        {
+          "speaker": "Classmates A",
+          "dia_id": "S5:14",
+          "text": "Aw, it was no problem. I just wanted you to be happy again. And now, let's go make some new friends together!"
+        }
+      ],
+      "speaker_a": "Classmates A",
+      "speaker_b": "Classmates B"
+    }
+  }
+]

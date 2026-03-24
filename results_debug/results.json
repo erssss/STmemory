@@ -1,0 +1,23 @@
+{
+    "0": [
+        {
+            "question": "When did Caroline go to the LGBTQ support group?",
+            "answer": "7 May 2023",
+            "category": 2,
+            "evidence": [
+                "D1:3"
+            ],
+            "response": "",
+            "adversarial_answer": "",
+            "speaker_1_memories": [],
+            "speaker_2_memories": [],
+            "num_speaker_1_memories": 0,
+            "num_speaker_2_memories": 0,
+            "speaker_1_memory_time": 0.03277015686035156,
+            "speaker_2_memory_time": 0.011310577392578125,
+            "speaker_1_graph_memories": null,
+            "speaker_2_graph_memories": null,
+            "response_time": 118.40315914154053
+        }
+    ]
+}

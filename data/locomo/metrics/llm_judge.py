@@ -1,0 +1,113 @@
+import json
+import os
+import re
+
+import requests
+
+ACCURACY_PROMPT = """
+Your task is to label an answer to a question as ’CORRECT’ or ’WRONG’. You will be given the following data:
+    (1) a question (posed by one user to another user), 
+    (2) a ’gold’ (ground truth) answer, 
+    (3) a generated answer
+which you will score as CORRECT/WRONG.
+
+The point of the question is to ask about something one user should know about the other user based on their prior conversations.
+The gold answer will usually be a concise and short answer that includes the referenced topic, for example:
+Question: Do you remember what I got the last time I went to Hawaii?
+Gold answer: A shell necklace
+The generated answer might be much longer, but you should be generous with your grading - as long as it touches on the same topic as the gold answer, it should be counted as CORRECT. 
+
+For time related questions, the gold answer will be a specific date, month, year, etc. The generated answer might be much longer or use relative time references (like "last Tuesday" or "next month"), but you should be generous with your grading - as long as it refers to the same date or time period as the gold answer, it should be counted as CORRECT. Even if the format differs (e.g., "May 7th" vs "7 May"), consider it CORRECT if it's the same date.
+
+Now it’s time for the real question:
+Question: {question}
+Gold answer: {gold_answer}
+Generated answer: {generated_answer}
+
+First, provide a short (one sentence) explanation of your reasoning, then finish with CORRECT or WRONG. 
+Do NOT include both CORRECT and WRONG in your response, or it will break the evaluation script.
+
+Just return the label CORRECT or WRONG in a json format with the key as "label".
+"""
+
+
+def extract_json(text):
+    """
+    Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
+    If no code block is found, returns the text as-is.
+    """
+    text = text.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+    else:
+        json_str = text  # assume it's raw JSON
+    return json_str
+
+
+def evaluate_llm_judge(question, gold_answer, generated_answer):
+    """Evaluate the generated answer against the gold answer using an LLM judge."""
+    model = str(os.getenv("MODEL") or "").strip() or "qwen3.5:9b"
+    prompt = ACCURACY_PROMPT.format(question=question, gold_answer=gold_answer, generated_answer=generated_answer)
+    base_url = str(os.getenv("OPENAI_BASE_URL") or "").strip() or "http://localhost:11434"
+    use_ollama = str(os.getenv("USE_OLLAMA") or "").strip().lower() in {"1", "true", "yes"} or (
+        "127.0.0.1:11434" in base_url or "localhost:11434" in base_url
+    )
+    if use_ollama:
+        base = base_url.rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3].rstrip("/")
+        r = requests.post(
+            f"{base}/api/chat",
+            json={
+                "model": model,
+                "stream": False,
+                "format": "json",
+                "messages": [{"role": "user", "content": prompt}],
+                "think": False,
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=600,
+        )
+        r.raise_for_status()
+        data = r.json() if r.text else {}
+        content = str((((data.get("message") or {}) or {}).get("content") or ""))
+        try:
+            label = json.loads(extract_json(content))["label"]
+        except Exception:
+            label = None
+        if label not in ("CORRECT", "WRONG"):
+            s = content.upper()
+            if "CORRECT" in s and "WRONG" not in s:
+                label = "CORRECT"
+            elif "WRONG" in s and "CORRECT" not in s:
+                label = "WRONG"
+        return 1 if label == "CORRECT" else 0
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(base_url=base_url) if base_url else OpenAI()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+        )
+    except Exception:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+    content = str(response.choices[0].message.content or "")
+    try:
+        label = json.loads(extract_json(content))["label"]
+    except Exception:
+        label = None
+    if label not in ("CORRECT", "WRONG"):
+        s = content.upper()
+        if "CORRECT" in s and "WRONG" not in s:
+            label = "CORRECT"
+        elif "WRONG" in s and "CORRECT" not in s:
+            label = "WRONG"
+    return 1 if label == "CORRECT" else 0

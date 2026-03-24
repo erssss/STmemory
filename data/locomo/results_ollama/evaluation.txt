@@ -1,0 +1,6 @@
+
+--- Experiment: add (Model: qwen3.5:9b) ---
+  Total server execution time: 86.1401 seconds
+  Total requests: 6042
+  Average request time: 0.0143 seconds
+  P95 request time: 0.0318 seconds
